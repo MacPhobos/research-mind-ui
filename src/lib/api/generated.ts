@@ -41,10 +41,298 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sessions
+         * @description List sessions with pagination.
+         */
+        get: operations["list_sessions_api_v1_sessions__get"];
+        put?: never;
+        /**
+         * Create Session
+         * @description Create a new research session.
+         */
+        post: operations["create_session_api_v1_sessions__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session
+         * @description Retrieve a single session by ID.
+         */
+        get: operations["get_session_api_v1_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Session
+         * @description Delete a session and its workspace directory.
+         */
+        delete: operations["delete_session_api_v1_sessions__session_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspaces/{workspace_id}/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Index Workspace
+         * @description Trigger indexing for a workspace.
+         */
+        post: operations["index_workspace_api_v1_workspaces__workspace_id__index_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workspaces/{workspace_id}/index/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Index Status
+         * @description Check the indexing status of a workspace.
+         */
+        get: operations["get_index_status_api_v1_workspaces__workspace_id__index_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Audit Logs
+         * @description Retrieve audit logs for a session.
+         */
+        get: operations["get_audit_logs_api_v1_sessions__session_id__audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Health Check
+         * @description Health check under the /api/v1 prefix.
+         */
+        get: operations["api_health_check_api_v1_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        /**
+         * AuditLogListResponse
+         * @description Paginated list of audit log entries.
+         */
+        AuditLogListResponse: {
+            /** Logs */
+            logs: components["schemas"]["AuditLogResponse"][];
+            /** Count */
+            count: number;
+        };
+        /**
+         * AuditLogResponse
+         * @description Single audit log entry returned by the API.
+         */
+        AuditLogResponse: {
+            /** Id */
+            id: number;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Session Id */
+            session_id: string;
+            /** Action */
+            action: string;
+            /** Query */
+            query?: string | null;
+            /** Result Count */
+            result_count?: number | null;
+            /** Duration Ms */
+            duration_ms?: number | null;
+            /** Status */
+            status: string;
+            /** Error */
+            error?: string | null;
+            /** Metadata Json */
+            metadata_json?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * CreateSessionRequest
+         * @description Body for POST /api/v1/sessions.
+         */
+        CreateSessionRequest: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * IndexResultResponse
+         * @description Response for POST /api/v1/workspaces/{workspace_id}/index.
+         */
+        IndexResultResponse: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Success */
+            success: boolean;
+            /** Status */
+            status: string;
+            /** Elapsed Seconds */
+            elapsed_seconds: number;
+            /** Stdout */
+            stdout?: string | null;
+            /** Stderr */
+            stderr?: string | null;
+        };
+        /**
+         * IndexStatusResponse
+         * @description Response for GET /api/v1/workspaces/{workspace_id}/index/status.
+         */
+        IndexStatusResponse: {
+            /** Workspace Id */
+            workspace_id: string;
+            /** Is Indexed */
+            is_indexed: boolean;
+            /** Status */
+            status: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * IndexWorkspaceRequest
+         * @description Body for POST /api/v1/workspaces/{workspace_id}/index.
+         */
+        IndexWorkspaceRequest: {
+            /**
+             * Force
+             * @description Force re-index from scratch
+             * @default true
+             */
+            force: boolean;
+            /**
+             * Timeout
+             * @description Custom timeout in seconds (10-600)
+             */
+            timeout?: number | null;
+        };
+        /**
+         * SessionListResponse
+         * @description Paginated list of sessions.
+         */
+        SessionListResponse: {
+            /** Sessions */
+            sessions: components["schemas"]["SessionResponse"][];
+            /** Count */
+            count: number;
+        };
+        /**
+         * SessionResponse
+         * @description Single session returned by the API.
+         */
+        SessionResponse: {
+            /** Session Id */
+            session_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Workspace Path */
+            workspace_path: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Last Accessed
+             * Format: date-time
+             */
+            last_accessed: string;
+            /** Status */
+            status: string;
+            /** Archived */
+            archived: boolean;
+            /** Ttl Seconds */
+            ttl_seconds?: number | null;
+            /**
+             * Is Indexed
+             * @default false
+             */
+            is_indexed: boolean;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
@@ -74,6 +362,251 @@ export interface operations {
         };
     };
     get_version_api_v1_version_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_sessions_api_v1_sessions__get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_session_api_v1_sessions__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_session_api_v1_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_session_api_v1_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    index_workspace_api_v1_workspaces__workspace_id__index_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["IndexWorkspaceRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_index_status_api_v1_workspaces__workspace_id__index_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_audit_logs_api_v1_sessions__session_id__audit_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_health_check_api_v1_health_get: {
         parameters: {
             query?: never;
             header?: never;
