@@ -7,4 +7,7 @@ export default defineConfig({
     port: 15000,
     host: 'localhost',
   },
+  ssr: {
+    noExternal: ['bits-ui'],
+  },
 });

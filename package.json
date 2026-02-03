@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@tanstack/svelte-query": "^5.51.23",
+    "bits-ui": "^2.15.5",
     "lucide-svelte": "^0.344.0",
     "zod": "^3.22.0"
   }
