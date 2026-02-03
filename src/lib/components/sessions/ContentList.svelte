@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText, Link, Trash2, AlertCircle } from 'lucide-svelte';
+  import { FileText, Link, Trash2, AlertCircle, GitBranch } from 'lucide-svelte';
   import type { ContentItemResponse } from '$lib/api/client';
   import { useDeleteContentMutation } from '$lib/api/hooks';
   import { toastStore } from '$lib/stores/toast';
@@ -26,10 +26,19 @@
     switch (contentType) {
       case 'url':
         return Link;
+      case 'git_repo':
+        return GitBranch;
       case 'text':
       default:
         return FileText;
     }
+  }
+
+  function extractRepoName(sourceRef: string | null | undefined): string | null {
+    if (!sourceRef) return null;
+    // Extract repo name from URL like https://github.com/owner/repo.git
+    const match = sourceRef.match(/\/([^/]+?)(?:\.git)?$/);
+    return match ? match[1] : null;
   }
 
   function formatFileSize(bytes: number | null | undefined): string {
@@ -103,8 +112,32 @@
           </div>
           {#if item.source_ref}
             <p class="item-source" title={item.source_ref}>
-              {item.content_type === 'url' ? item.source_ref : 'Text content'}
+              {#if item.content_type === 'url'}
+                {item.source_ref}
+              {:else if item.content_type === 'git_repo'}
+                {extractRepoName(item.source_ref) || item.source_ref}
+              {:else}
+                Text content
+              {/if}
             </p>
+          {/if}
+          {#if item.content_type === 'git_repo'}
+            {@const metadata = (item as { metadata_json?: Record<string, unknown> }).metadata_json}
+            {#if metadata}
+              <div class="item-repo-meta">
+                {#if metadata.clone_status}
+                  <span class="repo-status" class:cloned={metadata.clone_status === 'cloned'}>
+                    {metadata.clone_status}
+                  </span>
+                {/if}
+                {#if metadata.branch}
+                  <span class="repo-branch">
+                    <GitBranch size={12} />
+                    {metadata.branch}
+                  </span>
+                {/if}
+              </div>
+            {/if}
           {/if}
           {#if item.status === 'error' && item.error_message}
             <div class="item-error">
@@ -252,6 +285,34 @@
     margin-top: var(--space-2);
     font-size: var(--font-size-xs);
     color: var(--error-color);
+  }
+
+  .item-repo-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+    font-size: var(--font-size-xs);
+  }
+
+  .repo-status {
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-hover);
+    color: var(--text-muted);
+    text-transform: capitalize;
+  }
+
+  .repo-status.cloned {
+    background: rgba(0, 170, 0, 0.1);
+    color: var(--success-color);
+  }
+
+  .repo-branch {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--text-secondary);
   }
 
   .delete-btn {

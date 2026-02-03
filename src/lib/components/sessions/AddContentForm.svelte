@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText, Link, Loader, X } from 'lucide-svelte';
+  import { FileText, Link, GitBranch, Loader, X } from 'lucide-svelte';
   import { useAddContentMutation } from '$lib/api/hooks';
   import { toastStore } from '$lib/stores/toast';
 
@@ -13,11 +13,21 @@
 
   const mutation = useAddContentMutation();
 
+  // Content types
+  const contentTypes = [
+    { value: 'text', label: 'Text', icon: FileText },
+    { value: 'url', label: 'URL', icon: Link },
+    { value: 'git_repo', label: 'Git Repository', icon: GitBranch },
+  ] as const;
+
+  type ContentType = (typeof contentTypes)[number]['value'];
+
   // Form state
-  let contentType = $state<'text' | 'url'>('text');
+  let contentType = $state<ContentType>('text');
   let title = $state('');
   let source = $state('');
-  let touched = $state({ title: false, source: false });
+  let gitUrl = $state('');
+  let touched = $state({ title: false, source: false, gitUrl: false });
 
   // Validation
   const titleError = $derived(
@@ -34,12 +44,24 @@
     null
   );
 
-  const isValid = $derived(
-    title.trim().length > 0 &&
-    title.trim().length <= 255 &&
-    source.trim().length > 0 &&
-    (contentType !== 'url' || isValidUrl(source.trim()))
+  const gitUrlError = $derived(
+    !touched.gitUrl ? null :
+    gitUrl.trim().length === 0 ? 'Git URL is required' :
+    !isValidGitUrl(gitUrl.trim()) ? 'Please enter a valid Git URL (HTTPS, SSH, or git://)' :
+    null
   );
+
+  const isValid = $derived(() => {
+    if (contentType === 'git_repo') {
+      return gitUrl.trim().length > 0 && isValidGitUrl(gitUrl.trim());
+    }
+    return (
+      title.trim().length > 0 &&
+      title.trim().length <= 255 &&
+      source.trim().length > 0 &&
+      (contentType !== 'url' || isValidUrl(source.trim()))
+    );
+  });
 
   function isValidUrl(str: string): boolean {
     try {
@@ -50,27 +72,60 @@
     }
   }
 
+  function isValidGitUrl(url: string): boolean {
+    if (!url || url.trim() === '') return false;
+    // Support HTTPS, SSH, and git:// protocols
+    const patterns = [
+      /^https?:\/\/.+/, // HTTPS URLs
+      /^git@.+:.+/, // SSH URLs (git@github.com:user/repo.git)
+      /^git:\/\/.+/, // Git protocol
+    ];
+    return patterns.some((p) => p.test(url.trim()));
+  }
+
+  function extractRepoName(url: string): string {
+    // Extract repo name from URL for default title
+    // Handle: https://github.com/user/repo.git, git@github.com:user/repo.git, etc.
+    const trimmed = url.trim().replace(/\.git$/, '');
+    const parts = trimmed.split(/[/:]/);
+    return parts[parts.length - 1] || url;
+  }
+
   async function handleSubmit(event: Event) {
     event.preventDefault();
 
-    if (!isValid || $mutation.isPending) return;
+    if (!isValid() || $mutation.isPending) return;
 
     try {
-      await $mutation.mutateAsync({
-        sessionId,
-        contentType,
-        options: {
-          title: title.trim(),
-          source: source.trim(),
-        },
-      });
+      if (contentType === 'git_repo') {
+        // For git_repo, use gitUrl as source and extract repo name for title
+        const repoName = extractRepoName(gitUrl);
+        await $mutation.mutateAsync({
+          sessionId,
+          contentType,
+          options: {
+            title: repoName,
+            source: gitUrl.trim(),
+          },
+        });
+      } else {
+        await $mutation.mutateAsync({
+          sessionId,
+          contentType,
+          options: {
+            title: title.trim(),
+            source: source.trim(),
+          },
+        });
+      }
 
       toastStore.success('Content added successfully');
 
       // Reset form
       title = '';
       source = '';
-      touched = { title: false, source: false };
+      gitUrl = '';
+      touched = { title: false, source: false, gitUrl: false };
 
       onSuccess?.();
     } catch {
@@ -81,7 +136,8 @@
   function handleCancel() {
     title = '';
     source = '';
-    touched = { title: false, source: false };
+    gitUrl = '';
+    touched = { title: false, source: false, gitUrl: false };
     onCancel?.();
   }
 </script>
@@ -97,73 +153,87 @@
   </div>
 
   <div class="type-selector">
-    <button
-      type="button"
-      class="type-btn"
-      class:active={contentType === 'text'}
-      onclick={() => contentType = 'text'}
-    >
-      <FileText size={16} />
-      Text
-    </button>
-    <button
-      type="button"
-      class="type-btn"
-      class:active={contentType === 'url'}
-      onclick={() => contentType = 'url'}
-    >
-      <Link size={16} />
-      URL
-    </button>
+    {#each contentTypes as ct}
+      <button
+        type="button"
+        class="type-btn"
+        class:active={contentType === ct.value}
+        onclick={() => (contentType = ct.value)}
+      >
+        <ct.icon size={16} />
+        {ct.label}
+      </button>
+    {/each}
   </div>
 
-  <div class="form-group">
-    <label for="content-title">
-      Title <span class="required">*</span>
-    </label>
-    <input
-      id="content-title"
-      type="text"
-      bind:value={title}
-      onblur={() => (touched.title = true)}
-      class:error={titleError}
-      placeholder="Enter a title for this content"
-      required
-    />
-    {#if titleError}
-      <p class="error-text">{titleError}</p>
-    {/if}
-  </div>
-
-  <div class="form-group">
-    <label for="content-source">
-      {contentType === 'text' ? 'Content' : 'URL'} <span class="required">*</span>
-    </label>
-    {#if contentType === 'text'}
-      <textarea
-        id="content-source"
-        bind:value={source}
-        onblur={() => (touched.source = true)}
-        class:error={sourceError}
-        placeholder="Enter your text content here..."
-        rows="6"
-        required
-      ></textarea>
-    {:else}
+  {#if contentType === 'git_repo'}
+    <div class="form-group">
+      <label for="git-url">
+        Git URL <span class="required">*</span>
+      </label>
       <input
-        id="content-source"
-        type="url"
-        bind:value={source}
-        onblur={() => (touched.source = true)}
-        class:error={sourceError}
-        placeholder="https://example.com/article"
+        id="git-url"
+        type="text"
+        bind:value={gitUrl}
+        onblur={() => (touched.gitUrl = true)}
+        class:error={gitUrlError}
+        placeholder="https://github.com/user/repo.git"
         required
       />
-    {/if}
-    {#if sourceError}
-      <p class="error-text">{sourceError}</p>
-    {/if}
-  </div>
+      {#if gitUrlError}
+        <p class="error-text">{gitUrlError}</p>
+      {/if}
+      <p class="help-text">Supports HTTPS, SSH (git@...), and git:// URLs</p>
+    </div>
+  {:else}
+    <div class="form-group">
+      <label for="content-title">
+        Title <span class="required">*</span>
+      </label>
+      <input
+        id="content-title"
+        type="text"
+        bind:value={title}
+        onblur={() => (touched.title = true)}
+        class:error={titleError}
+        placeholder="Enter a title for this content"
+        required
+      />
+      {#if titleError}
+        <p class="error-text">{titleError}</p>
+      {/if}
+    </div>
+
+    <div class="form-group">
+      <label for="content-source">
+        {contentType === 'text' ? 'Content' : 'URL'} <span class="required">*</span>
+      </label>
+      {#if contentType === 'text'}
+        <textarea
+          id="content-source"
+          bind:value={source}
+          onblur={() => (touched.source = true)}
+          class:error={sourceError}
+          placeholder="Enter your text content here..."
+          rows="6"
+          required
+        ></textarea>
+      {:else}
+        <input
+          id="content-source"
+          type="url"
+          bind:value={source}
+          onblur={() => (touched.source = true)}
+          class:error={sourceError}
+          placeholder="https://example.com/article"
+          required
+        />
+      {/if}
+      {#if sourceError}
+        <p class="error-text">{sourceError}</p>
+      {/if}
+    </div>
+  {/if}
 
   {#if $mutation.isError}
     <div class="form-error">
@@ -180,7 +250,7 @@
     <button
       type="submit"
       class="submit-btn"
-      disabled={!isValid || $mutation.isPending}
+      disabled={!isValid() || $mutation.isPending}
     >
       {#if $mutation.isPending}
         <Loader size={16} class="spinner" />
@@ -321,6 +391,12 @@
     margin: var(--space-2) 0 0 0;
     font-size: var(--font-size-xs);
     color: var(--error-color);
+  }
+
+  .help-text {
+    margin: var(--space-2) 0 0 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
   }
 
   .form-error {
