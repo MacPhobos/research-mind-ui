@@ -2117,6 +2117,7 @@ npx shadcn-svelte@latest add dialog
 
 - **shadcn-svelte Documentation**: [https://www.shadcn-svelte.com](https://www.shadcn-svelte.com)
 - **shadcn-svelte Components**: [https://www.shadcn-svelte.com/docs/components](https://www.shadcn-svelte.com/docs/components)
+- **shadcn-svelte LLM Reference**: [https://www.shadcn-svelte.com/llms.txt](https://www.shadcn-svelte.com/llms.txt) - AI-ready documentation summary with full component catalog (50+ components organized by category)
 - **Svelte 5 Migration Guide**: [https://www.shadcn-svelte.com/docs/migration/svelte-5](https://www.shadcn-svelte.com/docs/migration/svelte-5)
 
 ### Svelte 5 References
