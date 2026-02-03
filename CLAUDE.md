@@ -7,6 +7,7 @@ The **research-mind-ui** is a modern SvelteKit frontend application providing a 
 **Tech Stack**:
 - **Framework**: SvelteKit 5.x with Svelte 5.0 (Runes API)
 - **Language**: TypeScript 5.6+ (strict mode)
+- **UI Components**: bits-ui (headless components) with custom CSS
 - **Data Fetching**: TanStack Query (@tanstack/svelte-query)
 - **Validation**: Zod for runtime type safety
 - **Testing**: Vitest with jsdom
@@ -738,9 +739,16 @@ body {
 
 ### Design System
 
-**Current Status**: Custom CSS with CSS variables.
+**Current Status**: bits-ui headless components with custom CSS variables.
 
-**Future**: shadcn-svelte components planned (not yet installed).
+**Guidelines**: See [`docs/svelte-shadcn-guidelines.md`](docs/svelte-shadcn-guidelines.md) for:
+- Component usage patterns (Dialog, Button, Select, etc.)
+- Styling with CSS custom properties and `:global()` selectors
+- Theming and dark mode implementation
+- Accessibility best practices
+- Performance considerations
+
+**Note**: We use bits-ui directly (the underlying library for shadcn-svelte) with custom CSS instead of Tailwind. This gives us full control over styling while maintaining accessible, headless components.
 
 ---
 
@@ -1089,8 +1097,7 @@ lsof -ti:15000 | xargs kill
 - User authentication (stubs planned, production auth TBD)
 - Multi-environment setup (local dev only)
 - Server-side rendering with +page.server.ts (not needed yet)
-- Tailwind CSS (using custom CSS for now)
-- shadcn-svelte components (planned, not installed)
+- Tailwind CSS (using bits-ui with custom CSS instead)
 
 ---
 
@@ -1098,6 +1105,8 @@ lsof -ti:15000 | xargs kill
 
 - **Svelte 5 Docs**: https://svelte.dev/docs/svelte/overview
 - **SvelteKit Docs**: https://kit.svelte.dev/docs
+- **bits-ui Docs**: https://bits-ui.com/docs
+- **shadcn-svelte**: https://shadcn-svelte.com/ (for reference patterns)
 - **TanStack Query**: https://tanstack.com/query/latest/docs/framework/svelte/overview
 - **Vite**: https://vitejs.dev/
 - **Vitest**: https://vitest.dev/
