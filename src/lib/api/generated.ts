@@ -86,7 +86,11 @@ export interface paths {
         delete: operations["delete_session_api_v1_sessions__session_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Session
+         * @description Update a session's mutable fields (name, description, status).
+         */
+        patch: operations["update_session_api_v1_sessions__session_id__patch"];
         trace?: never;
     };
     "/api/v1/workspaces/{workspace_id}/index": {
@@ -124,6 +128,60 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/content/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Content
+         * @description List all content items for a session with pagination.
+         */
+        get: operations["list_content_api_v1_sessions__session_id__content__get"];
+        put?: never;
+        /**
+         * Add Content
+         * @description Add content to a session.
+         *
+         *     Supports multiple content types:
+         *     - text: Plain text content (source contains the text)
+         *     - file_upload: Upload a file (use the file parameter)
+         *     - url: Fetch content from URL (source contains the URL)
+         *     - git_repo: Clone a git repository (source contains the repo URL)
+         */
+        post: operations["add_content_api_v1_sessions__session_id__content__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/content/{content_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Content
+         * @description Get a single content item by ID.
+         */
+        get: operations["get_content_api_v1_sessions__session_id__content__content_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Content
+         * @description Delete a content item and its storage files.
+         */
+        delete: operations["delete_content_api_v1_sessions__session_id__content__content_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -213,6 +271,84 @@ export interface components {
             metadata_json?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** Body_add_content_api_v1_sessions__session_id__content__post */
+        Body_add_content_api_v1_sessions__session_id__content__post: {
+            /**
+             * Content Type
+             * @description Content type: text, file_upload, url, git_repo
+             */
+            content_type: string;
+            /**
+             * Title
+             * @description Content title
+             */
+            title?: string | null;
+            /**
+             * Source
+             * @description Source reference (URL, text)
+             */
+            source?: string | null;
+            /**
+             * Metadata
+             * @description JSON string of additional metadata
+             */
+            metadata?: string | null;
+            /**
+             * File
+             * @description File to upload (for file_upload type)
+             */
+            file?: string | null;
+        };
+        /**
+         * ContentItemResponse
+         * @description Single content item returned by the API.
+         */
+        ContentItemResponse: {
+            /** Content Id */
+            content_id: string;
+            /** Session Id */
+            session_id: string;
+            /** Content Type */
+            content_type: string;
+            /** Title */
+            title: string;
+            /** Source Ref */
+            source_ref?: string | null;
+            /** Storage Path */
+            storage_path?: string | null;
+            /** Status */
+            status: string;
+            /** Error Message */
+            error_message?: string | null;
+            /** Size Bytes */
+            size_bytes?: number | null;
+            /** Mime Type */
+            mime_type?: string | null;
+            /** Metadata Json */
+            metadata_json?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ContentListResponse
+         * @description Paginated list of content items.
+         */
+        ContentListResponse: {
+            /** Items */
+            items: components["schemas"]["ContentItemResponse"][];
+            /** Count */
+            count: number;
         };
         /**
          * CreateSessionRequest
@@ -322,6 +458,23 @@ export interface components {
              * @default false
              */
             is_indexed: boolean;
+            /**
+             * Content Count
+             * @default 0
+             */
+            content_count: number;
+        };
+        /**
+         * UpdateSessionRequest
+         * @description Body for PATCH /api/v1/sessions/{session_id} (future use).
+         */
+        UpdateSessionRequest: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Status */
+            status?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -506,6 +659,41 @@ export interface operations {
             };
         };
     };
+    update_session_api_v1_sessions__session_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     index_workspace_api_v1_workspaces__workspace_id__index_post: {
         parameters: {
             query?: never;
@@ -560,6 +748,137 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["IndexStatusResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_content_api_v1_sessions__session_id__content__get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_content_api_v1_sessions__session_id__content__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_add_content_api_v1_sessions__session_id__content__post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentItemResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_content_api_v1_sessions__session_id__content__content_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                content_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentItemResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_content_api_v1_sessions__session_id__content__content_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                content_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

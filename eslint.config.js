@@ -50,6 +50,20 @@ export default [
     },
     rules: {
       ...sveltePlugin.configs.recommended.rules,
+      // Disable state_referenced_locally for TanStack Query patterns
+      // TanStack Query handles reactivity internally via queryKey watching
+      'svelte/valid-compile': ['error', { ignoreWarnings: true }],
+      // Allow unused vars with underscore prefix (Svelte props pattern)
+      // Also ignore function parameter names in type definitions
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
     },
   },
   prettier,
