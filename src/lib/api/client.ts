@@ -511,6 +511,21 @@ export const apiClient = {
   },
 
   /**
+   * Clear all chat messages for a session.
+   * @param sessionId - Session UUID
+   */
+  async clearChatHistory(sessionId: string): Promise<void> {
+    const response = await fetch(
+      `${apiBaseUrl}/api/v1/sessions/${sessionId}/chat`,
+      { method: 'DELETE' }
+    );
+    if (!response.ok) {
+      throw await ApiError.fromResponse('Failed to clear chat history', response);
+    }
+    // 204 No Content - no body to parse
+  },
+
+  /**
    * Get the full SSE stream URL for a chat message.
    * @param streamUrl - Relative stream URL from sendChatMessage response
    */

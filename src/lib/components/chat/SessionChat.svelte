@@ -1,11 +1,17 @@
 <script lang="ts">
-  import { Send, Loader2, MessageSquare, AlertCircle, RefreshCw } from 'lucide-svelte';
-  import { useChatMessagesQuery, useSendChatMessageMutation } from '$lib/api/hooks';
+  import { Send, Loader2, MessageSquare, AlertCircle, RefreshCw, Trash2 } from 'lucide-svelte';
+  import {
+    useChatMessagesQuery,
+    useSendChatMessageMutation,
+    useClearChatHistoryMutation,
+  } from '$lib/api/hooks';
   import { createChatStream } from '$lib/hooks/useChatStream.svelte';
   import { useQueryClient } from '@tanstack/svelte-query';
   import { queryKeys } from '$lib/api/queryKeys';
   import ChatMessage from './ChatMessage.svelte';
   import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
+  import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
+  import { toastStore } from '$lib/stores/toast';
   import type { ChatMessageResponse } from '$lib/api/client';
 
   interface Props {
@@ -26,6 +32,10 @@
   // TanStack Query hooks
   const messagesQuery = useChatMessagesQuery(sessionId);
   const sendMutation = useSendChatMessageMutation();
+  const clearMutation = useClearChatHistoryMutation();
+
+  // Clear chat dialog state
+  let showClearDialog = $state(false);
 
   // SSE stream handler
   const stream = createChatStream(() => {
@@ -132,10 +142,32 @@
     });
   }
 
+  // Clear chat history handlers
+  function openClearDialog() {
+    showClearDialog = true;
+  }
+
+  async function handleClearConfirm() {
+    showClearDialog = false;
+    try {
+      await $clearMutation.mutateAsync(sessionId);
+      toastStore.success('Chat history cleared');
+      stream.reset();
+    } catch (err) {
+      console.error('Failed to clear chat history:', err);
+      toastStore.error('Failed to clear chat history');
+    }
+  }
+
+  function handleClearCancel() {
+    showClearDialog = false;
+  }
+
   // Check if sending is disabled
   const isSendDisabled = $derived(
     !inputContent.trim() ||
       $sendMutation.isPending ||
+      $clearMutation.isPending ||
       stream.isStreaming ||
       !isIndexed
   );
@@ -226,24 +258,49 @@
         {#if stream.isStreaming}
           <Loader2 size={14} class="spinner" />
           Generating response...
+        {:else if $clearMutation.isPending}
+          <Loader2 size={14} class="spinner" />
+          Clearing history...
         {:else}
           Press Ctrl+Enter to send
         {/if}
       </span>
-      <button
-        type="submit"
-        disabled={isSendDisabled}
-        class="send-btn"
-      >
-        {#if $sendMutation.isPending}
-          <Loader2 size={18} class="spinner" />
-        {:else}
-          <Send size={18} />
-        {/if}
-        Send
-      </button>
+      <div class="action-buttons">
+        <button
+          type="button"
+          onclick={openClearDialog}
+          disabled={!isIndexed || stream.isStreaming || $clearMutation.isPending || displayMessages().length === 0}
+          class="clear-btn"
+          title="Clear chat history"
+        >
+          <Trash2 size={18} />
+        </button>
+        <button
+          type="submit"
+          disabled={isSendDisabled}
+          class="send-btn"
+        >
+          {#if $sendMutation.isPending}
+            <Loader2 size={18} class="spinner" />
+          {:else}
+            <Send size={18} />
+          {/if}
+          Send
+        </button>
+      </div>
     </div>
   </form>
+
+  <ConfirmDialog
+    bind:open={showClearDialog}
+    title="Clear Chat History"
+    message="Are you sure you want to clear all chat messages? This action cannot be undone."
+    confirmLabel="Clear"
+    cancelLabel="Cancel"
+    variant="danger"
+    onConfirm={handleClearConfirm}
+    onCancel={handleClearCancel}
+  />
 </div>
 
 <style>
@@ -432,6 +489,36 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  .action-buttons {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .clear-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2);
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .clear-btn:hover:not(:disabled) {
+    background: var(--error-bg, rgba(239, 68, 68, 0.1));
+    border-color: var(--error-color);
+    color: var(--error-color);
+  }
+
+  .clear-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .send-btn {

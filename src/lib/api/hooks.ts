@@ -369,3 +369,21 @@ export function useDeleteChatMessageMutation() {
     },
   });
 }
+
+/**
+ * Mutation hook for clearing all chat messages for a session.
+ * Removes all chat queries from cache and invalidates on success.
+ */
+export function useClearChatHistoryMutation() {
+  const queryClient = useQueryClient();
+
+  return createMutation<void, ApiError, string>({
+    mutationFn: (sessionId) => apiClient.clearChatHistory(sessionId),
+    onSuccess: (_data, sessionId) => {
+      // Remove all chat queries for this session from cache
+      queryClient.removeQueries({ queryKey: queryKeys.chat.all(sessionId) });
+      // Invalidate to trigger refetch if components are mounted
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.all(sessionId) });
+    },
+  });
+}

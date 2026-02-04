@@ -963,6 +963,74 @@ describe('API Client', () => {
     });
   });
 
+  describe('clearChatHistory', () => {
+    it('should complete without error on success (204)', async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 204,
+        } as Response)
+      );
+
+      await expect(apiClient.clearChatHistory('session-123')).resolves.toBeUndefined();
+    });
+
+    it('should use DELETE method on session chat endpoint', async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 204,
+        } as Response)
+      );
+
+      await apiClient.clearChatHistory('session-123');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions/session-123/chat'),
+        expect.objectContaining({
+          method: 'DELETE',
+        })
+      );
+    });
+
+    it('should throw ApiError on 404 (session not found)', async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          json: () =>
+            Promise.resolve({
+              detail: {
+                error: { code: 'SESSION_NOT_FOUND', message: 'Session not found' },
+              },
+            }),
+        } as Response)
+      );
+
+      try {
+        await apiClient.clearChatHistory('nonexistent');
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect((error as ApiError).code).toBe('SESSION_NOT_FOUND');
+      }
+    });
+
+    it('should throw ApiError on HTTP error', async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+          json: () => Promise.resolve({}),
+        } as Response)
+      );
+
+      await expect(apiClient.clearChatHistory('session-123')).rejects.toThrow(ApiError);
+    });
+  });
+
   describe('getFullStreamUrl', () => {
     it('should prepend API base URL to stream URL', () => {
       const streamUrl = '/api/v1/sessions/session-123/chat/stream/msg-789';
