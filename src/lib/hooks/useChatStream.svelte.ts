@@ -121,6 +121,14 @@ export function createChatStream(onComplete?: () => void) {
       // Legacy: 'complete' event (backwards compatibility)
       case ChatStreamEventType.COMPLETE:
         messageId = (data.message_id as string) ?? messageId;
+        // CRITICAL: Extract content from complete event as fallback
+        // This ensures content is captured even if assistant/result events were missed
+        if (data.content && typeof data.content === 'string') {
+          // Only update if we don't already have stage2 content
+          if (!stage2Content) {
+            stage2Content = data.content;
+          }
+        }
         // Extract token count and duration from legacy format
         if (data.token_count || data.duration_ms) {
           metadata = {
