@@ -2,19 +2,41 @@
  * Svelte 5 Runes-based hook for handling SSE chat streams.
  *
  * Uses EventSource to connect to the backend's SSE endpoint and
- * accumulates streamed content in real-time.
+ * provides two-stage content accumulation:
+ * - Stage 1 (expandable): Full process output (plain text init + system JSON)
+ * - Stage 2 (primary): Clean final answer
  */
 
 import { apiClient } from '$lib/api/client';
+import {
+  ChatStreamEventType,
+  parseEventType,
+  formatSystemEvent,
+  type ChatResultMetadata,
+} from '$lib/types/chat';
 
 export type StreamStatus = 'idle' | 'connecting' | 'streaming' | 'completed' | 'error';
 
 export interface StreamState {
-  content: string;
+  /** Stage 1 content (expandable accordion) */
+  stage1Content: string;
+  /** Stage 2 content (primary answer) */
+  stage2Content: string;
+  /** Current status */
   status: StreamStatus;
+  /** Error message if any */
   error: string | null;
+  /** Message ID */
   messageId: string | null;
+  /** Result metadata */
+  metadata: ChatResultMetadata | null;
+
+  // Legacy properties for backwards compatibility
+  /** @deprecated Use stage2Content instead */
+  content: string;
+  /** @deprecated Use metadata.token_count instead */
   tokenCount: number | null;
+  /** @deprecated Use metadata.duration_ms instead */
   durationMs: number | null;
 }
 
@@ -25,16 +47,123 @@ export interface StreamState {
  * @returns Object with state getters and control functions
  */
 export function createChatStream(onComplete?: () => void) {
-  // Reactive state using $state
-  let content = $state('');
+  // Reactive state using $state - Two-stage content
+  let stage1Content = $state('');
+  let stage2Content = $state('');
   let status = $state<StreamStatus>('idle');
   let error = $state<string | null>(null);
   let messageId = $state<string | null>(null);
-  let tokenCount = $state<number | null>(null);
-  let durationMs = $state<number | null>(null);
+  let metadata = $state<ChatResultMetadata | null>(null);
 
   // Store reference to EventSource for cleanup
   let eventSource: EventSource | null = null;
+
+  /**
+   * Handle an SSE event based on its type.
+   */
+  function handleEvent(eventType: ChatStreamEventType, data: Record<string, unknown>): void {
+    switch (eventType) {
+      case ChatStreamEventType.START:
+        // Reset state at start
+        stage1Content = '';
+        stage2Content = '';
+        metadata = null;
+        messageId = (data.message_id as string) ?? null;
+        status = 'streaming';
+        break;
+
+      // Stage 1: Expandable content
+      case ChatStreamEventType.INIT_TEXT:
+        stage1Content += (data.content as string) + '\n';
+        break;
+
+      case ChatStreamEventType.SYSTEM_INIT:
+      case ChatStreamEventType.SYSTEM_HOOK: {
+        // Format system events for display
+        const formatted = formatSystemEvent(
+          eventType,
+          (data.content as string) ?? '',
+          (data.raw_json as Record<string, unknown>) ?? data
+        );
+        stage1Content += formatted + '\n';
+        break;
+      }
+
+      case ChatStreamEventType.STREAM_TOKEN:
+        // Token streaming (Stage 1)
+        stage1Content += data.content as string ?? '';
+        break;
+
+      // Stage 2: Primary answer
+      case ChatStreamEventType.ASSISTANT:
+        stage2Content = data.content as string ?? '';
+        break;
+
+      case ChatStreamEventType.RESULT:
+        // Final answer with metadata
+        stage2Content = data.content as string ?? data.result as string ?? stage2Content;
+        metadata = extractMetadata(data);
+        messageId = (data.message_id as string) ?? messageId;
+        status = 'completed';
+        eventSource?.close();
+        eventSource = null;
+        onComplete?.();
+        break;
+
+      // Legacy: 'chunk' event (backwards compatibility)
+      case ChatStreamEventType.CHUNK:
+        // Treat as Stage 1 content (legacy behavior accumulates to expandable)
+        if (data.content) {
+          stage1Content += (data.content as string) + '\n';
+        }
+        break;
+
+      // Legacy: 'complete' event (backwards compatibility)
+      case ChatStreamEventType.COMPLETE:
+        messageId = (data.message_id as string) ?? messageId;
+        // Extract token count and duration from legacy format
+        if (data.token_count || data.duration_ms) {
+          metadata = {
+            token_count: data.token_count as number | undefined,
+            duration_ms: data.duration_ms as number | undefined,
+          };
+        }
+        status = 'completed';
+        eventSource?.close();
+        eventSource = null;
+        onComplete?.();
+        break;
+
+      case ChatStreamEventType.ERROR:
+        error = (data.error as string) || 'Stream error occurred';
+        messageId = (data.message_id as string) ?? messageId;
+        status = 'error';
+        eventSource?.close();
+        eventSource = null;
+        break;
+
+      case ChatStreamEventType.HEARTBEAT:
+        // Heartbeat received - connection is alive
+        break;
+    }
+  }
+
+  /**
+   * Extract metadata from a result event.
+   */
+  function extractMetadata(data: Record<string, unknown>): ChatResultMetadata {
+    const usage = data.usage as Record<string, unknown> | undefined;
+    return {
+      duration_ms: data.duration_ms as number | undefined,
+      duration_api_ms: data.duration_api_ms as number | undefined,
+      cost_usd: data.total_cost_usd as number | undefined,
+      session_id: data.session_id as string | undefined,
+      num_turns: data.num_turns as number | undefined,
+      token_count: usage?.output_tokens as number | undefined,
+      input_tokens: usage?.input_tokens as number | undefined,
+      cache_read_tokens: usage?.cache_read_input_tokens as number | undefined,
+    };
+  }
 
   /**
    * Connect to the SSE stream for a given stream URL.
@@ -48,11 +177,11 @@ export function createChatStream(onComplete?: () => void) {
     }
 
     // Reset state
-    content = '';
+    stage1Content = '';
+    stage2Content = '';
     status = 'connecting';
     error = null;
-    tokenCount = null;
-    durationMs = null;
+    metadata = null;
 
     // Get full URL from the API client
     const fullUrl = apiClient.getFullStreamUrl(streamUrl);
@@ -60,62 +189,31 @@ export function createChatStream(onComplete?: () => void) {
     try {
       eventSource = new EventSource(fullUrl);
 
-      // Handle SSE events
-      eventSource.addEventListener('start', (event: MessageEvent) => {
-        try {
-          const data = JSON.parse(event.data);
-          messageId = data.message_id;
-          status = 'streaming';
-        } catch {
-          console.error('Failed to parse start event:', event.data);
-        }
-      });
+      // Handle SSE events by type
+      const eventTypes = [
+        'start',
+        'init_text',
+        'system_init',
+        'system_hook',
+        'stream_token',
+        'assistant',
+        'result',
+        'error',
+        'heartbeat',
+        'chunk',     // Legacy
+        'complete',  // Legacy
+      ];
 
-      eventSource.addEventListener('chunk', (event: MessageEvent) => {
-        try {
-          const data = JSON.parse(event.data);
-          // Append the content with a newline if content exists
-          if (data.content) {
-            content += data.content + '\n';
+      for (const eventType of eventTypes) {
+        eventSource.addEventListener(eventType, (event: MessageEvent) => {
+          try {
+            const data = JSON.parse(event.data);
+            handleEvent(parseEventType(eventType), data);
+          } catch (e) {
+            console.error(`Failed to parse ${eventType} event:`, event.data, e);
           }
-        } catch {
-          console.error('Failed to parse chunk event:', event.data);
-        }
-      });
-
-      eventSource.addEventListener('complete', (event: MessageEvent) => {
-        try {
-          const data = JSON.parse(event.data);
-          messageId = data.message_id;
-          tokenCount = data.token_count ?? null;
-          durationMs = data.duration_ms ?? null;
-          status = 'completed';
-          disconnect();
-          onComplete?.();
-        } catch {
-          console.error('Failed to parse complete event:', event.data);
-        }
-      });
-
-      eventSource.addEventListener('error', (event: MessageEvent) => {
-        try {
-          const data = JSON.parse(event.data);
-          error = data.error || 'Stream error occurred';
-          messageId = data.message_id;
-          status = 'error';
-          disconnect();
-        } catch {
-          // Not a JSON error event - could be connection error
-          error = 'Connection error';
-          status = 'error';
-          disconnect();
-        }
-      });
-
-      // Handle heartbeat (just log for now, no state change)
-      eventSource.addEventListener('heartbeat', () => {
-        // Heartbeat received - connection is alive
-      });
+        });
+      }
 
       // Handle generic EventSource errors (connection issues)
       eventSource.onerror = () => {
@@ -146,20 +244,28 @@ export function createChatStream(onComplete?: () => void) {
    */
   function reset(): void {
     disconnect();
-    content = '';
+    stage1Content = '';
+    stage2Content = '';
     status = 'idle';
     error = null;
     messageId = null;
-    tokenCount = null;
-    durationMs = null;
+    metadata = null;
   }
 
   // Return reactive getters and control functions
   return {
-    // Getters for reactive state
-    get content() {
-      return content;
+    // Two-stage content getters
+    get stage1Content() {
+      return stage1Content;
     },
+    get stage2Content() {
+      return stage2Content;
+    },
+    get metadata() {
+      return metadata;
+    },
+
+    // Status getters
     get status() {
       return status;
     },
@@ -169,12 +275,6 @@ export function createChatStream(onComplete?: () => void) {
     get messageId() {
       return messageId;
     },
-    get tokenCount() {
-      return tokenCount;
-    },
-    get durationMs() {
-      return durationMs;
-    },
     get isStreaming() {
       return status === 'streaming' || status === 'connecting';
     },
@@ -183,6 +283,21 @@ export function createChatStream(onComplete?: () => void) {
     },
     get hasError() {
       return status === 'error';
+    },
+
+    // Legacy getters for backwards compatibility
+    /** @deprecated Use stage2Content instead */
+    get content() {
+      // Return stage2Content if available, otherwise stage1Content (legacy behavior)
+      return stage2Content || stage1Content;
+    },
+    /** @deprecated Use metadata.token_count instead */
+    get tokenCount() {
+      return metadata?.token_count ?? null;
+    },
+    /** @deprecated Use metadata.duration_ms instead */
+    get durationMs() {
+      return metadata?.duration_ms ?? null;
     },
 
     // Control functions

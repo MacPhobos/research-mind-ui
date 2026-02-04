@@ -9,6 +9,7 @@
 
   // Generate tabs dynamically based on sessionId
   const tabs = $derived([
+    { id: 'chat', label: 'Chat', href: `/sessions/${sessionId}/chat` },
     { id: 'overview', label: 'Overview', href: `/sessions/${sessionId}` },
     { id: 'indexing', label: 'Indexing', href: `/sessions/${sessionId}/indexing` },
     { id: 'audit', label: 'Audit Log', href: `/sessions/${sessionId}/audit` },
@@ -31,7 +32,7 @@
     }
 
     return 'overview';
-  });
+  }) as () => 'chat' | 'overview' | 'indexing' | 'audit' | 'settings';
 </script>
 
 <div class="session-tabs" role="tablist" aria-label="Session navigation">

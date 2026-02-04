@@ -37,18 +37,18 @@
 
   // Streaming message placeholder for display
   const streamingMessage = $derived<ChatMessageResponse | null>(
-    stream.isStreaming || (stream.isComplete && stream.content)
+    stream.isStreaming || (stream.isComplete && (stream.stage2Content || stream.stage1Content))
       ? {
           message_id: stream.messageId || 'streaming',
           session_id: sessionId,
           role: 'assistant',
-          content: stream.content,
+          content: stream.stage2Content || stream.content || '',
           status: stream.isStreaming ? 'streaming' : 'completed',
           error_message: stream.error,
           created_at: new Date().toISOString(),
           completed_at: null,
-          token_count: stream.tokenCount,
-          duration_ms: stream.durationMs,
+          token_count: stream.metadata?.token_count ?? stream.tokenCount ?? null,
+          duration_ms: stream.metadata?.duration_ms ?? stream.durationMs ?? null,
           metadata_json: null,
         }
       : null
@@ -188,6 +188,9 @@
           <ChatMessage
             {message}
             isStreaming={stream.isStreaming && message.message_id === stream.messageId}
+            stage1Content={message.message_id === stream.messageId ? stream.stage1Content : ''}
+            stage2Content={message.message_id === stream.messageId ? stream.stage2Content : ''}
+            streamMetadata={message.message_id === stream.messageId ? stream.metadata : null}
             streamContent={message.message_id === stream.messageId ? stream.content : ''}
           />
         {/each}

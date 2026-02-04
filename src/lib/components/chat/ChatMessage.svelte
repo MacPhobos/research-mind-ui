@@ -1,25 +1,82 @@
 <script lang="ts">
-  import { User, Bot, AlertCircle, Loader2 } from 'lucide-svelte';
-  import { formatRelativeTime } from '$lib/utils/format';
+  import { slide } from 'svelte/transition';
+  import { User, Bot, AlertCircle, Loader2, ChevronRight, ChevronDown } from 'lucide-svelte';
+  import { formatRelativeTime, formatDuration } from '$lib/utils/format';
   import type { ChatMessageResponse } from '$lib/api/client';
+  import type { ChatResultMetadata } from '$lib/types/chat';
 
   interface Props {
     message: ChatMessageResponse;
     isStreaming?: boolean;
+    /** @deprecated Use stage1Content and stage2Content instead */
     streamContent?: string;
+    /** Stage 1 content (expandable process output) */
+    stage1Content?: string;
+    /** Stage 2 content (primary answer) */
+    stage2Content?: string;
+    /** Metadata from streaming result */
+    streamMetadata?: ChatResultMetadata | null;
   }
 
-  let { message, isStreaming = false, streamContent = '' }: Props = $props();
+  let {
+    message,
+    isStreaming = false,
+    streamContent = '',
+    stage1Content = '',
+    stage2Content = '',
+    streamMetadata = null,
+  }: Props = $props();
 
-  // Determine which content to display
-  const displayContent = $derived(
-    isStreaming && streamContent ? streamContent : message.content
-  );
+  // Expandable accordion state
+  let expanded = $state(false);
+
+  // Determine which content to display for primary area
+  const displayContent = $derived(() => {
+    // If streaming with two-stage, prefer stage2Content
+    if (isStreaming || stage2Content || stage1Content) {
+      return stage2Content || '';
+    }
+    // Legacy: use streamContent if provided
+    if (streamContent) {
+      return streamContent;
+    }
+    // Default to message content
+    return message.content;
+  });
+
+  // Check if we have expandable content
+  const hasExpandableContent = $derived(stage1Content.length > 0);
 
   // Determine role styling
   const isUser = $derived(message.role === 'user');
   const isError = $derived(message.status === 'error');
   const isPending = $derived(message.status === 'pending');
+
+  // Get metadata for display (prefer streaming metadata, fall back to message)
+  const displayMetadata = $derived(() => {
+    if (streamMetadata) {
+      return {
+        token_count: streamMetadata.token_count,
+        duration_ms: streamMetadata.duration_ms,
+        cost_usd: streamMetadata.cost_usd,
+        input_tokens: streamMetadata.input_tokens,
+      };
+    }
+    return {
+      token_count: message.token_count,
+      duration_ms: message.duration_ms,
+      cost_usd: undefined,
+      input_tokens: undefined,
+    };
+  });
+
+  // Toggle accordion with keyboard support
+  function handleAccordionKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      expanded = !expanded;
+    }
+  }
 </script>
 
 <div class="chat-message" class:user={isUser} class:assistant={!isUser} class:error={isError}>
@@ -43,26 +100,66 @@
       {/if}
     </div>
 
+    <!-- Stage 1: Expandable Process Output (only for assistant messages) -->
+    {#if !isUser && hasExpandableContent}
+      <div class="expandable-section">
+        <button
+          type="button"
+          class="expand-toggle"
+          onclick={() => (expanded = !expanded)}
+          onkeydown={handleAccordionKeydown}
+          aria-expanded={expanded}
+          aria-controls="stage1-content"
+        >
+          <span class="toggle-icon">
+            {#if expanded}
+              <ChevronDown size={14} />
+            {:else}
+              <ChevronRight size={14} />
+            {/if}
+          </span>
+          <span class="toggle-text">Full Process Output</span>
+          {#if isStreaming}
+            <span class="streaming-dot" aria-label="Streaming"></span>
+          {/if}
+        </button>
+
+        {#if expanded}
+          <pre
+            id="stage1-content"
+            class="stage1-content"
+            transition:slide={{ duration: 200 }}
+          >{stage1Content}</pre>
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Stage 2: Primary Answer / Main Content -->
     <div class="message-body">
       {#if isError}
         <div class="error-content">
           <AlertCircle size={16} />
           <span>{message.error_message || 'An error occurred'}</span>
         </div>
-      {:else if isPending && !isStreaming}
+      {:else if isPending && !isStreaming && !stage1Content}
         <div class="pending-content">
           <Loader2 size={16} class="spinner" />
           <span>Waiting for response...</span>
         </div>
-      {:else if displayContent}
+      {:else if displayContent()}
         <div class="text-content">
-          {#each displayContent.split('\n') as line, i}
+          {#each displayContent().split('\n') as line, i}
             {#if line.trim()}
               <p>{line}</p>
-            {:else if i < displayContent.split('\n').length - 1}
+            {:else if i < displayContent().split('\n').length - 1}
               <br />
             {/if}
           {/each}
+        </div>
+      {:else if isStreaming && stage1Content && !stage2Content}
+        <div class="loading-placeholder">
+          <Loader2 size={16} class="spinner" />
+          <span>Generating response...</span>
         </div>
       {:else}
         <div class="empty-content">
@@ -71,13 +168,29 @@
       {/if}
     </div>
 
-    {#if message.token_count || message.duration_ms}
+    <!-- Metadata Footer -->
+    {#if !isStreaming && (displayMetadata().token_count || displayMetadata().duration_ms || displayMetadata().cost_usd)}
       <div class="message-meta">
-        {#if message.token_count}
-          <span class="meta-item">{message.token_count} tokens</span>
+        {#if displayMetadata().duration_ms}
+          <span class="meta-item">
+            <span class="meta-label">Duration:</span>
+            {formatDuration(displayMetadata().duration_ms!)}
+          </span>
         {/if}
-        {#if message.duration_ms}
-          <span class="meta-item">{(message.duration_ms / 1000).toFixed(1)}s</span>
+        {#if displayMetadata().token_count}
+          <span class="meta-item">
+            <span class="meta-label">Tokens:</span>
+            {displayMetadata().token_count}
+            {#if displayMetadata().input_tokens}
+              ({displayMetadata().input_tokens} in)
+            {/if}
+          </span>
+        {/if}
+        {#if displayMetadata().cost_usd}
+          <span class="meta-item">
+            <span class="meta-label">Cost:</span>
+            ${displayMetadata().cost_usd!.toFixed(4)}
+          </span>
         {/if}
       </div>
     {/if}
@@ -172,6 +285,83 @@
     }
   }
 
+  /* Expandable Section (Stage 1) */
+  .expandable-section {
+    margin-bottom: var(--space-3);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    overflow: hidden;
+  }
+
+  .expand-toggle {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-secondary);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    text-align: left;
+    transition: background var(--transition-fast);
+  }
+
+  .expand-toggle:hover {
+    background: var(--bg-hover);
+  }
+
+  .expand-toggle:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+  }
+
+  .toggle-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
+  .toggle-text {
+    flex: 1;
+  }
+
+  .streaming-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success-color, #22c55e);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+
+  .stage1-content {
+    padding: var(--space-3);
+    background: var(--bg-code, #1e1e2e);
+    color: var(--text-code, #cdd6f4);
+    font-family: var(--font-mono, 'Monaco', 'Consolas', monospace);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+  }
+
+  /* Message Body (Stage 2) */
   .message-body {
     font-size: var(--font-size-sm);
     line-height: 1.6;
@@ -193,14 +383,17 @@
     color: var(--error-color);
   }
 
-  .pending-content {
+  .pending-content,
+  .loading-placeholder {
     display: flex;
     align-items: center;
     gap: var(--space-2);
     color: var(--text-muted);
+    font-size: var(--font-size-sm);
   }
 
-  .pending-content :global(.spinner) {
+  .pending-content :global(.spinner),
+  .loading-placeholder :global(.spinner) {
     animation: spin 1s linear infinite;
   }
 
@@ -209,10 +402,14 @@
     font-style: italic;
   }
 
+  /* Metadata Footer */
   .message-meta {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-3);
-    margin-top: var(--space-2);
+    margin-top: var(--space-3);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border-color);
     font-size: var(--font-size-xs);
     color: var(--text-muted);
   }
@@ -221,5 +418,9 @@
     display: flex;
     align-items: center;
     gap: var(--space-1);
+  }
+
+  .meta-label {
+    color: var(--text-muted);
   }
 </style>

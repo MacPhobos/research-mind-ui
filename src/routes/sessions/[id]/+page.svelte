@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { ArrowRight, Database, FileText, Clock, Plus, MessageSquare } from 'lucide-svelte';
+  import { ArrowRight, Database, FileText, Clock, Plus } from 'lucide-svelte';
   import { useSessionQuery, useIndexStatusQuery, useContentQuery } from '$lib/api/hooks';
   import { formatDate, formatRelativeTime } from '$lib/utils/format';
   import StatusBadge from '$lib/components/shared/StatusBadge.svelte';
   import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
   import ContentList from '$lib/components/sessions/ContentList.svelte';
   import AddContentForm from '$lib/components/sessions/AddContentForm.svelte';
-  import { SessionChat } from '$lib/components/chat';
 
   interface Props {
     data: {
@@ -163,18 +162,6 @@
         </a>
       {/if}
     {/if}
-  </section>
-
-  <!-- Chat Section -->
-  <section class="card chat-card">
-    <h2 class="card-title">
-      <MessageSquare size={20} />
-      Chat
-    </h2>
-    <SessionChat
-      sessionId={currentSessionId}
-      isIndexed={$indexQuery.data?.is_indexed ?? false}
-    />
   </section>
 
   <!-- Quick Actions Card -->
@@ -364,14 +351,6 @@
   .action-item:hover {
     background: var(--bg-active);
     color: var(--primary-color);
-  }
-
-  .chat-card {
-    padding: var(--space-4);
-  }
-
-  .chat-card .card-title {
-    margin-bottom: var(--space-3);
   }
 
   @media (max-width: 480px) {
