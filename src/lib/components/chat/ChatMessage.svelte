@@ -4,6 +4,7 @@
   import { formatRelativeTime, formatDuration } from '$lib/utils/format';
   import type { ChatMessageResponse } from '$lib/api/client';
   import type { ChatResultMetadata } from '$lib/types/chat';
+  import MarkdownContent from './MarkdownContent.svelte';
 
   interface Props {
     message: ChatMessageResponse;
@@ -147,15 +148,21 @@
           <span>Waiting for response...</span>
         </div>
       {:else if displayContent()}
-        <div class="text-content">
-          {#each displayContent().split('\n') as line, i}
-            {#if line.trim()}
-              <p>{line}</p>
-            {:else if i < displayContent().split('\n').length - 1}
-              <br />
-            {/if}
-          {/each}
-        </div>
+        {#if isUser}
+          <!-- User messages: plain text rendering -->
+          <div class="text-content">
+            {#each displayContent().split('\n') as line, i}
+              {#if line.trim()}
+                <p>{line}</p>
+              {:else if i < displayContent().split('\n').length - 1}
+                <br />
+              {/if}
+            {/each}
+          </div>
+        {:else}
+          <!-- Assistant messages: markdown rendering -->
+          <MarkdownContent content={displayContent()} {isStreaming} />
+        {/if}
       {:else if isStreaming && stage1Content && !stage2Content}
         <div class="loading-placeholder">
           <Loader2 size={16} class="spinner" />

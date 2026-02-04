@@ -4,6 +4,7 @@
   import AppShell from '$lib/components/layout/AppShell.svelte';
   import ToastContainer from '$lib/components/shared/ToastContainer.svelte';
   import { uiStore } from '$lib/stores/ui';
+  import { initSyntaxHighlighter, setHighlighterTheme } from '$lib/utils/markdown';
   import type { Snippet } from 'svelte';
 
   interface Props {
@@ -20,6 +21,15 @@
         refetchOnWindowFocus: false,
       },
     },
+  });
+
+  // Initialize syntax highlighter at app startup
+  $effect(() => {
+    const theme = $uiStore.theme;
+    // Initialize highlighter with current theme (only runs once on first load)
+    initSyntaxHighlighter(theme);
+    // Update theme when it changes
+    setHighlighterTheme(theme);
   });
 
   // Apply theme to document

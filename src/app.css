@@ -57,6 +57,13 @@
   /* Transitions */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
+
+  /* Code/Markdown styling */
+  --bg-code: #f6f8fa;
+  --bg-code-inline: #f0f0f0;
+  --text-code: #24292f;
+  --border-code: #d0d7de;
+  --font-mono: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
 }
 
 /* Dark theme overrides */
@@ -79,6 +86,12 @@
   --text-muted: #666666;
 
   --border-color: #3a3a3a;
+
+  /* Code/Markdown styling (dark) */
+  --bg-code: #161b22;
+  --bg-code-inline: #2d2d2d;
+  --text-code: #c9d1d9;
+  --border-code: #30363d;
 }
 
 body {
@@ -130,4 +143,77 @@ a {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--secondary-color);
+}
+
+/* ===========================================
+   Markdown Content Styles
+   =========================================== */
+
+/* Code block wrapper with copy button */
+.code-block-wrapper {
+  position: relative;
+  margin: var(--space-4) 0;
+}
+
+.copy-code-button {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--transition-fast),
+    background var(--transition-fast);
+  z-index: 1;
+}
+
+.code-block-wrapper:hover .copy-code-button {
+  opacity: 1;
+}
+
+.copy-code-button:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.copy-code-button.copied {
+  background: var(--success-color);
+  color: white;
+  border-color: var(--success-color);
+}
+
+/* Shiki code block styling */
+.code-block-wrapper pre {
+  margin: 0;
+  padding: var(--space-4);
+  border-radius: var(--border-radius-md);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+/* Override Shiki background for theme consistency */
+.code-block-wrapper pre.shiki {
+  background: var(--bg-code) !important;
+}
+
+.code-block-wrapper pre code {
+  font-family: inherit;
+  font-size: inherit;
+  background: transparent;
+  padding: 0;
+}
+
+/* Fallback code block styling (non-Shiki) */
+.code-block-wrapper pre:not(.shiki) {
+  background: var(--bg-code);
+  color: var(--text-code);
+  border: 1px solid var(--border-code);
 }

@@ -94,5 +94,12 @@ export default [
       ],
     },
   },
+  // Allow @html in MarkdownContent - content is sanitized via DOMPurify
+  {
+    files: ['**/MarkdownContent.svelte'],
+    rules: {
+      'svelte/no-at-html-tags': 'off',
+    },
+  },
   prettier,
 ];
