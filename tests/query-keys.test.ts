@@ -90,4 +90,57 @@ describe('queryKeys', () => {
       expect(sessionsAllKey[0]).toBe('sessions');
     });
   });
+
+  // =========================================================================
+  // Chat Keys
+  // =========================================================================
+
+  describe('chat', () => {
+    it('should have all method', () => {
+      expect(queryKeys.chat.all).toBeDefined();
+      expect(typeof queryKeys.chat.all).toBe('function');
+    });
+
+    it('should have list method', () => {
+      expect(queryKeys.chat.list).toBeDefined();
+      expect(typeof queryKeys.chat.list).toBe('function');
+    });
+
+    it('should have detail method', () => {
+      expect(queryKeys.chat.detail).toBeDefined();
+      expect(typeof queryKeys.chat.detail).toBe('function');
+    });
+
+    it('should generate correct all key', () => {
+      const key = queryKeys.chat.all('session-123');
+      expect(key).toEqual(['chat', 'session-123']);
+    });
+
+    it('should generate correct list key with default params', () => {
+      const key = queryKeys.chat.list('session-123');
+      expect(key).toEqual(['chat', 'session-123', 'list', {}]);
+    });
+
+    it('should generate correct list key with pagination params', () => {
+      const key = queryKeys.chat.list('session-123', { limit: 20, offset: 10 });
+      expect(key).toEqual(['chat', 'session-123', 'list', { limit: 20, offset: 10 }]);
+    });
+
+    it('should generate correct detail key', () => {
+      const key = queryKeys.chat.detail('session-123', 'msg-456');
+      expect(key).toEqual(['chat', 'session-123', 'detail', 'msg-456']);
+    });
+
+    it('should generate unique keys for different sessions', () => {
+      const key1 = queryKeys.chat.list('session-1');
+      const key2 = queryKeys.chat.list('session-2');
+      expect(key1).not.toEqual(key2);
+    });
+
+    it('should generate unique keys for different messages', () => {
+      const key1 = queryKeys.chat.detail('session-123', 'msg-1');
+      const key2 = queryKeys.chat.detail('session-123', 'msg-2');
+      expect(key1).not.toEqual(key2);
+    });
+  });
 });

@@ -12,6 +12,9 @@ import {
   type AuditLogListResponse,
   type ContentListResponse,
   type ContentItemResponse,
+  type ChatMessageListResponse,
+  type ChatMessageResponse,
+  type ChatMessageWithStreamUrlResponse,
 } from './client';
 import { ApiError } from './errors';
 import { queryKeys } from './queryKeys';
@@ -282,5 +285,87 @@ export function useAuditLogsQuery(sessionId: string | undefined, limit = 50, off
     enabled: !!sessionId,
     staleTime: 15000, // 15 seconds - logs update on every operation
     gcTime: 60000, // 1 minute
+  });
+}
+
+// =============================================================================
+// Chat Hooks
+// =============================================================================
+
+/**
+ * Query hook for fetching chat messages for a session.
+ * @param sessionId - Session UUID
+ * @param limit - Items per page (default: 50)
+ * @param offset - Starting position (default: 0)
+ */
+export function useChatMessagesQuery(sessionId: string | undefined, limit = 50, offset = 0) {
+  return createQuery<ChatMessageListResponse, ApiError>({
+    queryKey: queryKeys.chat.list(sessionId ?? '', { limit, offset }),
+    queryFn: () => apiClient.listChatMessages(sessionId!, limit, offset),
+    enabled: !!sessionId,
+    staleTime: 0, // Always refetch to show latest messages
+    gcTime: 60000, // 1 minute
+  });
+}
+
+/**
+ * Query hook for fetching a single chat message.
+ * @param sessionId - Session UUID
+ * @param messageId - Message UUID
+ */
+export function useChatMessageQuery(
+  sessionId: string | undefined,
+  messageId: string | undefined
+) {
+  return createQuery<ChatMessageResponse, ApiError>({
+    queryKey: queryKeys.chat.detail(sessionId ?? '', messageId ?? ''),
+    queryFn: () => apiClient.getChatMessage(sessionId!, messageId!),
+    enabled: !!sessionId && !!messageId,
+    staleTime: 30000, // 30 seconds
+    gcTime: 60000, // 1 minute
+  });
+}
+
+/**
+ * Mutation hook for sending a chat message.
+ * Invalidates chat messages list on success.
+ */
+export function useSendChatMessageMutation() {
+  const queryClient = useQueryClient();
+
+  return createMutation<
+    ChatMessageWithStreamUrlResponse,
+    ApiError,
+    { sessionId: string; content: string }
+  >({
+    mutationFn: ({ sessionId, content }) => apiClient.sendChatMessage(sessionId, content),
+    onSuccess: (_data, variables) => {
+      // Invalidate chat messages list to refetch
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chat.all(variables.sessionId),
+      });
+    },
+  });
+}
+
+/**
+ * Mutation hook for deleting a chat message.
+ * Invalidates chat messages list on success.
+ */
+export function useDeleteChatMessageMutation() {
+  const queryClient = useQueryClient();
+
+  return createMutation<void, ApiError, { sessionId: string; messageId: string }>({
+    mutationFn: ({ sessionId, messageId }) => apiClient.deleteChatMessage(sessionId, messageId),
+    onSuccess: (_data, variables) => {
+      // Remove the specific message from cache
+      queryClient.removeQueries({
+        queryKey: queryKeys.chat.detail(variables.sessionId, variables.messageId),
+      });
+      // Invalidate chat messages list
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chat.all(variables.sessionId),
+      });
+    },
   });
 }

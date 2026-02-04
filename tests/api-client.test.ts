@@ -732,4 +732,244 @@ describe('API Client', () => {
       await expect(apiClient.getAuditLogs('session-123')).rejects.toThrow(ZodError);
     });
   });
+
+  // =========================================================================
+  // Chat
+  // =========================================================================
+
+  const createMockChatMessage = (overrides = {}) => ({
+    message_id: 'msg-789',
+    session_id: 'session-123',
+    role: 'user',
+    content: 'Hello, how can you help?',
+    status: 'completed',
+    error_message: null,
+    created_at: '2026-02-01T10:00:00Z',
+    completed_at: '2026-02-01T10:00:05Z',
+    token_count: 10,
+    duration_ms: 5000,
+    metadata_json: null,
+    ...overrides,
+  });
+
+  describe('sendChatMessage', () => {
+    it('should return message with stream URL on success', async () => {
+      const mockResponse = {
+        ...createMockChatMessage({ role: 'assistant', status: 'pending', content: '' }),
+        stream_url: '/api/v1/sessions/session-123/chat/stream/msg-789',
+      };
+
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        } as Response)
+      );
+
+      const result = await apiClient.sendChatMessage('session-123', 'Hello!');
+      expect(result.stream_url).toBe('/api/v1/sessions/session-123/chat/stream/msg-789');
+      expect(result.role).toBe('assistant');
+    });
+
+    it('should use POST method with JSON body', async () => {
+      const mockResponse = {
+        ...createMockChatMessage({ role: 'assistant', status: 'pending' }),
+        stream_url: '/api/v1/sessions/session-123/chat/stream/msg-789',
+      };
+
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        } as Response)
+      );
+
+      await apiClient.sendChatMessage('session-123', 'Test message');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions/session-123/chat'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: 'Test message' }),
+        })
+      );
+    });
+
+    it('should throw ApiError on session not indexed', async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 409,
+          statusText: 'Conflict',
+          json: () =>
+            Promise.resolve({
+              detail: {
+                error: { code: 'SESSION_NOT_INDEXED', message: 'Session must be indexed' },
+              },
+            }),
+        } as Response)
+      );
+
+      try {
+        await apiClient.sendChatMessage('session-123', 'Hello');
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect((error as ApiError).code).toBe('SESSION_NOT_INDEXED');
+      }
+    });
+  });
+
+  describe('listChatMessages', () => {
+    it('should return chat messages on success', async () => {
+      const mockData = {
+        messages: [
+          createMockChatMessage(),
+          createMockChatMessage({ message_id: 'msg-790', role: 'assistant' }),
+        ],
+        count: 2,
+      };
+
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockData),
+        } as Response)
+      );
+
+      const result = await apiClient.listChatMessages('session-123');
+      expect(result.messages).toHaveLength(2);
+      expect(result.count).toBe(2);
+    });
+
+    it('should use default limit=50 and offset=0', async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ messages: [], count: 0 }),
+        } as Response)
+      );
+
+      await apiClient.listChatMessages('session-123');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('limit=50')
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('offset=0')
+      );
+    });
+
+    it('should respect custom limit and offset', async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ messages: [], count: 0 }),
+        } as Response)
+      );
+
+      await apiClient.listChatMessages('session-123', 20, 10);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('limit=20')
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('offset=10')
+      );
+    });
+
+    it('should throw ApiError on HTTP error', async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          json: () => Promise.resolve({}),
+        } as Response)
+      );
+
+      await expect(apiClient.listChatMessages('session-123')).rejects.toThrow(ApiError);
+    });
+  });
+
+  describe('getChatMessage', () => {
+    it('should return single chat message on success', async () => {
+      const mockMessage = createMockChatMessage();
+
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockMessage),
+        } as Response)
+      );
+
+      const result = await apiClient.getChatMessage('session-123', 'msg-789');
+      expect(result.message_id).toBe('msg-789');
+      expect(result.content).toBe('Hello, how can you help?');
+    });
+
+    it('should throw ApiError on message not found', async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          json: () =>
+            Promise.resolve({
+              detail: {
+                error: { code: 'CHAT_MESSAGE_NOT_FOUND', message: 'Message not found' },
+              },
+            }),
+        } as Response)
+      );
+
+      await expect(apiClient.getChatMessage('session-123', 'nonexistent')).rejects.toThrow(
+        ApiError
+      );
+    });
+  });
+
+  describe('deleteChatMessage', () => {
+    it('should complete without error on success', async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 204,
+        } as Response)
+      );
+
+      await expect(
+        apiClient.deleteChatMessage('session-123', 'msg-789')
+      ).resolves.toBeUndefined();
+    });
+
+    it('should use DELETE method', async () => {
+      global.fetch = vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 204,
+        } as Response)
+      );
+
+      await apiClient.deleteChatMessage('session-123', 'msg-789');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions/session-123/chat/msg-789'),
+        expect.objectContaining({
+          method: 'DELETE',
+        })
+      );
+    });
+  });
+
+  describe('getFullStreamUrl', () => {
+    it('should prepend API base URL to stream URL', () => {
+      const streamUrl = '/api/v1/sessions/session-123/chat/stream/msg-789';
+      const fullUrl = apiClient.getFullStreamUrl(streamUrl);
+
+      expect(fullUrl).toContain(streamUrl);
+      expect(fullUrl).toMatch(/^https?:\/\//);
+    });
+  });
 });

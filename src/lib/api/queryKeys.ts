@@ -41,6 +41,20 @@ export const queryKeys = {
   /** Audit log queries */
   auditLogs: (sessionId: string, params?: { limit?: number; offset?: number }) =>
     ['auditLogs', sessionId, params ?? {}] as const,
+
+  /** Chat-related queries */
+  chat: {
+    /** Base key for all chat queries for a session */
+    all: (sessionId: string) => ['chat', sessionId] as const,
+
+    /** List chat messages for a session with pagination */
+    list: (sessionId: string, params?: { limit?: number; offset?: number }) =>
+      ['chat', sessionId, 'list', params ?? {}] as const,
+
+    /** Single chat message detail */
+    detail: (sessionId: string, messageId: string) =>
+      ['chat', sessionId, 'detail', messageId] as const,
+  },
 } as const;
 
 /**
@@ -52,3 +66,5 @@ export type ContentListKey = ReturnType<typeof queryKeys.content.list>;
 export type ContentDetailKey = ReturnType<typeof queryKeys.content.detail>;
 export type IndexStatusKey = ReturnType<typeof queryKeys.indexStatus>;
 export type AuditLogsKey = ReturnType<typeof queryKeys.auditLogs>;
+export type ChatListKey = ReturnType<typeof queryKeys.chat.list>;
+export type ChatDetailKey = ReturnType<typeof queryKeys.chat.detail>;

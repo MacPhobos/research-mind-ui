@@ -19,6 +19,10 @@ export type AuditLogListResponse = components['schemas']['AuditLogListResponse']
 export type AuditLogResponse = components['schemas']['AuditLogResponse'];
 export type ContentItemResponse = components['schemas']['ContentItemResponse'];
 export type ContentListResponse = components['schemas']['ContentListResponse'];
+export type ChatMessageResponse = components['schemas']['ChatMessageResponse'];
+export type ChatMessageListResponse = components['schemas']['ChatMessageListResponse'];
+export type ChatMessageWithStreamUrlResponse = components['schemas']['ChatMessageWithStreamUrlResponse'];
+export type SendChatMessageRequest = components['schemas']['SendChatMessageRequest'];
 
 // =============================================================================
 // Zod Schemas for Runtime Validation
@@ -114,6 +118,32 @@ const ContentItemResponseSchema = z.object({
 /** Content list response schema */
 const ContentListResponseSchema = z.object({
   items: z.array(ContentItemResponseSchema),
+  count: z.number(),
+});
+
+/** Chat message response schema */
+const ChatMessageResponseSchema = z.object({
+  message_id: z.string(),
+  session_id: z.string(),
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+  status: z.enum(['pending', 'streaming', 'completed', 'error']),
+  error_message: z.string().nullable().optional(),
+  created_at: z.string(),
+  completed_at: z.string().nullable().optional(),
+  token_count: z.number().nullable().optional(),
+  duration_ms: z.number().nullable().optional(),
+  metadata_json: z.record(z.unknown()).nullable().optional(),
+});
+
+/** Chat message with stream URL response schema */
+const ChatMessageWithStreamUrlResponseSchema = ChatMessageResponseSchema.extend({
+  stream_url: z.string().nullable().optional(),
+});
+
+/** Chat message list response schema */
+const ChatMessageListResponseSchema = z.object({
+  messages: z.array(ChatMessageResponseSchema),
   count: z.number(),
 });
 
@@ -393,5 +423,98 @@ export const apiClient = {
     }
     const data = await response.json();
     return AuditLogListResponseSchema.parse(data);
+  },
+
+  // ---------------------------------------------------------------------------
+  // Chat
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Send a chat message and get stream URL.
+   * @param sessionId - Session UUID
+   * @param content - Message content
+   */
+  async sendChatMessage(
+    sessionId: string,
+    content: string
+  ): Promise<ChatMessageWithStreamUrlResponse> {
+    const response = await fetch(`${apiBaseUrl}/api/v1/sessions/${sessionId}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (!response.ok) {
+      throw await ApiError.fromResponse('Failed to send chat message', response);
+    }
+    const data = await response.json();
+    return ChatMessageWithStreamUrlResponseSchema.parse(data);
+  },
+
+  /**
+   * List chat messages for a session.
+   * @param sessionId - Session UUID
+   * @param limit - Number of items per page (default: 50)
+   * @param offset - Starting position (default: 0)
+   */
+  async listChatMessages(
+    sessionId: string,
+    limit = 50,
+    offset = 0
+  ): Promise<ChatMessageListResponse> {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    });
+    const response = await fetch(
+      `${apiBaseUrl}/api/v1/sessions/${sessionId}/chat?${params}`
+    );
+    if (!response.ok) {
+      throw await ApiError.fromResponse('Failed to list chat messages', response);
+    }
+    const data = await response.json();
+    return ChatMessageListResponseSchema.parse(data);
+  },
+
+  /**
+   * Get a single chat message by ID.
+   * @param sessionId - Session UUID
+   * @param messageId - Message UUID
+   */
+  async getChatMessage(
+    sessionId: string,
+    messageId: string
+  ): Promise<ChatMessageResponse> {
+    const response = await fetch(
+      `${apiBaseUrl}/api/v1/sessions/${sessionId}/chat/${messageId}`
+    );
+    if (!response.ok) {
+      throw await ApiError.fromResponse('Failed to get chat message', response);
+    }
+    const data = await response.json();
+    return ChatMessageResponseSchema.parse(data);
+  },
+
+  /**
+   * Delete a chat message.
+   * @param sessionId - Session UUID
+   * @param messageId - Message UUID
+   */
+  async deleteChatMessage(sessionId: string, messageId: string): Promise<void> {
+    const response = await fetch(
+      `${apiBaseUrl}/api/v1/sessions/${sessionId}/chat/${messageId}`,
+      { method: 'DELETE' }
+    );
+    if (!response.ok) {
+      throw await ApiError.fromResponse('Failed to delete chat message', response);
+    }
+    // 204 No Content - no body to parse
+  },
+
+  /**
+   * Get the full SSE stream URL for a chat message.
+   * @param streamUrl - Relative stream URL from sendChatMessage response
+   */
+  getFullStreamUrl(streamUrl: string): string {
+    return `${apiBaseUrl}${streamUrl}`;
   },
 };

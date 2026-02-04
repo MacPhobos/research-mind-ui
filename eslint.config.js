@@ -31,6 +31,34 @@ export default [
       ...tsPlugin.configs.recommended.rules,
     },
   },
+  // Svelte 5 Runes in .svelte.ts files
+  {
+    files: ['**/*.svelte.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        sourceType: 'module',
+        ecmaVersion: 2020,
+      },
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        // Svelte 5 Runes
+        $state: 'readonly',
+        $derived: 'readonly',
+        $effect: 'readonly',
+        $props: 'readonly',
+        $bindable: 'readonly',
+        $inspect: 'readonly',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tsPlugin,
+    },
+    rules: {
+      ...tsPlugin.configs.recommended.rules,
+    },
+  },
   {
     files: ['**/*.svelte'],
     languageOptions: {

@@ -207,6 +207,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Chat Messages
+         * @description List all chat messages for a session with pagination.
+         */
+        get: operations["list_chat_messages_api_v1_sessions__session_id__chat_get"];
+        put?: never;
+        /**
+         * Send Chat Message
+         * @description Send a new chat message and get a stream URL for the response.
+         *
+         *     Creates both a user message and a placeholder assistant message.
+         *     The assistant message will be populated via the SSE stream endpoint.
+         *
+         *     The session must be indexed before chat is available.
+         */
+        post: operations["send_chat_message_api_v1_sessions__session_id__chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/chat/stream/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Chat Response
+         * @description Stream the AI response for a chat message using Server-Sent Events.
+         *
+         *     Invokes claude-mpm subprocess to generate response and streams
+         *     output line-by-line to the client.
+         *
+         *     SSE Event Types:
+         *     - start: {"message_id": "...", "status": "streaming"}
+         *     - chunk: {"content": "line of text"}
+         *     - complete: {"message_id": "...", "status": "completed", ...}
+         *     - error: {"message_id": "...", "status": "error", "error": "..."}
+         *     - heartbeat: {"timestamp": "ISO8601"} (every 15 seconds)
+         */
+        get: operations["stream_chat_response_api_v1_sessions__session_id__chat_stream__message_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/chat/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Chat Message
+         * @description Get a single chat message by ID.
+         */
+        get: operations["get_chat_message_api_v1_sessions__session_id__chat__message_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Chat Message
+         * @description Delete a chat message.
+         */
+        delete: operations["delete_chat_message_api_v1_sessions__session_id__chat__message_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -299,6 +382,96 @@ export interface components {
              * @description File to upload (for file_upload type)
              */
             file?: string | null;
+        };
+        /**
+         * ChatMessageListResponse
+         * @description Paginated list of chat messages.
+         */
+        ChatMessageListResponse: {
+            /** Messages */
+            messages: components["schemas"]["ChatMessageResponse"][];
+            /** Count */
+            count: number;
+        };
+        /**
+         * ChatMessageResponse
+         * @description Single chat message returned by the API.
+         */
+        ChatMessageResponse: {
+            /** Message Id */
+            message_id: string;
+            /** Session Id */
+            session_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Content */
+            content: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "streaming" | "completed" | "error";
+            /** Error Message */
+            error_message?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Token Count */
+            token_count?: number | null;
+            /** Duration Ms */
+            duration_ms?: number | null;
+            /** Metadata Json */
+            metadata_json?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * ChatMessageWithStreamUrlResponse
+         * @description Chat message response with stream URL for SSE connection.
+         */
+        ChatMessageWithStreamUrlResponse: {
+            /** Message Id */
+            message_id: string;
+            /** Session Id */
+            session_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Content */
+            content: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "streaming" | "completed" | "error";
+            /** Error Message */
+            error_message?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Token Count */
+            token_count?: number | null;
+            /** Duration Ms */
+            duration_ms?: number | null;
+            /** Metadata Json */
+            metadata_json?: {
+                [key: string]: unknown;
+            } | null;
+            /** Stream Url */
+            stream_url?: string | null;
         };
         /**
          * ContentItemResponse
@@ -413,6 +586,14 @@ export interface components {
              * @description Custom timeout in seconds (10-600)
              */
             timeout?: number | null;
+        };
+        /**
+         * SendChatMessageRequest
+         * @description Body for POST /api/v1/sessions/{session_id}/chat.
+         */
+        SendChatMessageRequest: {
+            /** Content */
+            content: string;
         };
         /**
          * SessionListResponse
@@ -913,6 +1094,169 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuditLogListResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_chat_messages_api_v1_sessions__session_id__chat_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_chat_message_api_v1_sessions__session_id__chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendChatMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageWithStreamUrlResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_chat_response_api_v1_sessions__session_id__chat_stream__message_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_chat_message_api_v1_sessions__session_id__chat__message_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_chat_message_api_v1_sessions__session_id__chat__message_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
