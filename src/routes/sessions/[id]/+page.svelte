@@ -39,52 +39,6 @@
 </svelte:head>
 
 <div class="overview-page">
-  <!-- Session Details Card -->
-  <section class="card">
-    <h2 class="card-title">
-      <FileText size={20} />
-      Session Details
-    </h2>
-    <div class="details-grid">
-      <div class="detail-row">
-        <span class="detail-label">Status</span>
-        <span class="detail-value">
-          {#if $sessionQuery.data}
-            <StatusBadge status={$sessionQuery.data.status} />
-          {:else}
-            -
-          {/if}
-        </span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Created</span>
-        <span class="detail-value">
-          {$sessionQuery.data ? formatDate($sessionQuery.data.created_at) : '-'}
-        </span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Last Accessed</span>
-        <span class="detail-value">
-          {$sessionQuery.data ? formatRelativeTime($sessionQuery.data.last_accessed) : '-'}
-        </span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Workspace Path</span>
-        <span class="detail-value mono">
-          {$sessionQuery.data?.workspace_path ?? '-'}
-        </span>
-      </div>
-      {#if $sessionQuery.data?.ttl_seconds}
-        <div class="detail-row">
-          <span class="detail-label">TTL</span>
-          <span class="detail-value">
-            {Math.floor($sessionQuery.data.ttl_seconds / 3600)} hours
-          </span>
-        </div>
-      {/if}
-    </div>
-  </section>
-
   <!-- Content Management Section -->
   <section class="card">
     <div class="card-header-with-action">
@@ -162,6 +116,52 @@
         </a>
       {/if}
     {/if}
+  </section>
+
+  <!-- Session Details Card -->
+  <section class="card">
+    <h2 class="card-title">
+      <FileText size={20} />
+      Session Details
+    </h2>
+    <div class="details-grid">
+      <div class="detail-row">
+        <span class="detail-label">Status</span>
+        <span class="detail-value">
+          {#if $sessionQuery.data}
+            <StatusBadge status={$sessionQuery.data.status} />
+          {:else}
+            -
+          {/if}
+        </span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Created</span>
+        <span class="detail-value">
+          {$sessionQuery.data ? formatDate($sessionQuery.data.created_at) : '-'}
+        </span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Last Accessed</span>
+        <span class="detail-value">
+          {$sessionQuery.data ? formatRelativeTime($sessionQuery.data.last_accessed) : '-'}
+        </span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Workspace Path</span>
+        <span class="detail-value mono">
+          {$sessionQuery.data?.workspace_path ?? '-'}
+        </span>
+      </div>
+      {#if $sessionQuery.data?.ttl_seconds}
+        <div class="detail-row">
+          <span class="detail-label">TTL</span>
+          <span class="detail-value">
+            {Math.floor($sessionQuery.data.ttl_seconds / 3600)} hours
+          </span>
+        </div>
+      {/if}
+    </div>
   </section>
 
   <!-- Quick Actions Card -->
