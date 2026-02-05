@@ -6,6 +6,7 @@
     useClearChatHistoryMutation,
     useExportChatHistoryMutation,
   } from '$lib/api/hooks';
+  import { toReactiveStore } from '$lib/api/reactiveQuery.svelte';
   import { createChatStream } from '$lib/hooks/useChatStream.svelte';
   import { useQueryClient } from '@tanstack/svelte-query';
   import { queryKeys } from '$lib/api/queryKeys';
@@ -32,8 +33,11 @@
   // Query client for invalidation
   const queryClient = useQueryClient();
 
-  // TanStack Query hooks
-  const messagesQuery = useChatMessagesQuery(sessionId);
+  // Convert to reactive store for TanStack Query
+  const sessionIdStore = toReactiveStore(() => sessionId);
+
+  // Use reactive store for TanStack Query updates on navigation
+  const messagesQuery = useChatMessagesQuery(sessionIdStore);
   const sendMutation = useSendChatMessageMutation();
   const clearMutation = useClearChatHistoryMutation();
   const exportMutation = useExportChatHistoryMutation();
@@ -42,12 +46,26 @@
   let showClearDialog = $state(false);
   let showExportDialog = $state(false);
 
-  // SSE stream handler
+  // Store current sessionId for use in callbacks to avoid stale closures
+  // This function always returns the current sessionId prop value
+  const getCurrentSessionId = () => sessionId;
+
+  // SSE stream handler - uses getCurrentSessionId() to avoid stale closure
   const stream = createChatStream(() => {
-    // On stream complete, refetch messages
+    // On stream complete, refetch messages using current sessionId
     queryClient.invalidateQueries({
-      queryKey: queryKeys.chat.all(sessionId),
+      queryKey: queryKeys.chat.all(getCurrentSessionId()),
     });
+  });
+
+  // Reset stream state when sessionId changes (navigation between sessions)
+  $effect(() => {
+    // Track sessionId changes
+    const _currentId = sessionId;
+    // Reset stream to avoid showing stale streaming content from previous session
+    return () => {
+      stream.reset();
+    };
   });
 
   // Streaming message placeholder for display

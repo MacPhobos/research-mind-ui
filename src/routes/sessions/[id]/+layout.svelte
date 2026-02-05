@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import { goto } from '$app/navigation';
   import { useSessionQuery } from '$lib/api/hooks';
+  import { toReactiveStore } from '$lib/api/reactiveQuery.svelte';
   import SessionHeader from '$lib/components/layout/SessionHeader.svelte';
   import SessionTabs from '$lib/components/layout/SessionTabs.svelte';
   import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
@@ -17,10 +18,12 @@
 
   // Derive sessionId to track prop changes reactively
   const sessionId = $derived(data.sessionId);
-  // Create a stable getter for TanStack Query to avoid state capture warning
-  const currentSessionId = $derived(sessionId);
 
-  const query = useSessionQuery(currentSessionId);
+  // Convert to reactive store for TanStack Query
+  const sessionIdStore = toReactiveStore(() => sessionId);
+
+  // Use reactive store for TanStack Query updates on navigation
+  const query = useSessionQuery(sessionIdStore);
 
   // Handle 404 - redirect to sessions list
   $effect(() => {
@@ -44,14 +47,14 @@
     </div>
   {:else if $query.data}
     <SessionHeader session={$query.data} />
-    <SessionTabs sessionId={currentSessionId} />
+    <SessionTabs sessionId={sessionId} />
     {@render children()}
   {/if}
 </div>
 
 <style>
   .session-detail-layout {
-    max-width: 1000px;
+    max-width: 1500px;
   }
 
   .loading-state {

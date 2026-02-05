@@ -6,6 +6,7 @@
     useUpdateSessionMutation,
     useDeleteSessionMutation,
   } from '$lib/api/hooks';
+  import { toReactiveStore } from '$lib/api/reactiveQuery.svelte';
   import { toastStore } from '$lib/stores/toast';
   import { formatDate } from '$lib/utils/format';
   import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
@@ -21,10 +22,12 @@
 
   // Derive sessionId to track prop changes reactively
   const sessionId = $derived(data.sessionId);
-  // Create a stable getter for TanStack Query to avoid state capture warning
-  const currentSessionId = $derived(sessionId);
 
-  const sessionQuery = useSessionQuery(currentSessionId);
+  // Convert to reactive store for TanStack Query
+  const sessionIdStore = toReactiveStore(() => sessionId);
+
+  // Use reactive store for TanStack Query updates on navigation
+  const sessionQuery = useSessionQuery(sessionIdStore);
   const updateMutation = useUpdateSessionMutation();
   const deleteMutation = useDeleteSessionMutation();
 
@@ -91,7 +94,7 @@
 
     try {
       await $updateMutation.mutateAsync({
-        sessionId: currentSessionId,
+        sessionId: sessionId,
         request: {
           name: editName.trim(),
           description: editDescription.trim() || null,
@@ -112,7 +115,7 @@
 
     try {
       await $updateMutation.mutateAsync({
-        sessionId: currentSessionId,
+        sessionId: sessionId,
         request: {
           status: newStatus,
         },
@@ -128,7 +131,7 @@
 
   async function confirmDelete() {
     try {
-      await $deleteMutation.mutateAsync(currentSessionId);
+      await $deleteMutation.mutateAsync(sessionId);
       toastStore.success('Session deleted successfully');
       goto('/sessions');
     } catch {

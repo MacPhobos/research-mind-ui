@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowRight, Database, FileText, Clock, Plus } from 'lucide-svelte';
   import { useSessionQuery, useIndexStatusQuery, useContentQuery } from '$lib/api/hooks';
+  import { toReactiveStore } from '$lib/api/reactiveQuery.svelte';
   import { formatDate, formatRelativeTime } from '$lib/utils/format';
   import StatusBadge from '$lib/components/shared/StatusBadge.svelte';
   import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
@@ -17,12 +18,14 @@
 
   // Derive sessionId to track prop changes reactively
   const sessionId = $derived(data.sessionId);
-  // Create a stable getter for TanStack Query to avoid state capture warning
-  const currentSessionId = $derived(sessionId);
 
-  const sessionQuery = useSessionQuery(currentSessionId);
-  const indexQuery = useIndexStatusQuery(currentSessionId);
-  const contentQuery = useContentQuery(currentSessionId);
+  // Convert to reactive store for TanStack Query
+  const sessionIdStore = toReactiveStore(() => sessionId);
+
+  // Use reactive store for TanStack Query updates on navigation
+  const sessionQuery = useSessionQuery(sessionIdStore);
+  const indexQuery = useIndexStatusQuery(sessionIdStore);
+  const contentQuery = useContentQuery(sessionIdStore);
 
   // State for showing add content form
   let showAddContent = $state(false);
@@ -64,7 +67,7 @@
     {#if showAddContent}
       <div class="add-content-wrapper">
         <AddContentForm
-          sessionId={currentSessionId}
+          sessionId={sessionId}
           onSuccess={handleContentAdded}
           onCancel={() => showAddContent = false}
         />
@@ -80,7 +83,7 @@
       <p class="error-text">Failed to load content: {$contentQuery.error?.message}</p>
     {:else if $contentQuery.data}
       <ContentList
-        sessionId={currentSessionId}
+        sessionId={sessionId}
         items={$contentQuery.data.items}
       />
     {/if}
@@ -110,7 +113,7 @@
         <p class="hint">
           Index your session to enable search and analysis features.
         </p>
-        <a href="/sessions/{currentSessionId}/indexing" class="action-link">
+        <a href="/sessions/{sessionId}/indexing" class="action-link">
           Index Now
           <ArrowRight size={16} />
         </a>
@@ -171,11 +174,11 @@
       Quick Actions
     </h2>
     <div class="actions-list">
-      <a href="/sessions/{currentSessionId}/audit" class="action-item">
+      <a href="/sessions/{sessionId}/audit" class="action-item">
         <span>View Audit Log</span>
         <ArrowRight size={16} />
       </a>
-      <a href="/sessions/{currentSessionId}/settings" class="action-item">
+      <a href="/sessions/{sessionId}/settings" class="action-item">
         <span>Go to Settings</span>
         <ArrowRight size={16} />
       </a>

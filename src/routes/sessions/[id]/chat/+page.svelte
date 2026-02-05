@@ -1,5 +1,6 @@
 <script lang="ts">
   import { useIndexStatusQuery } from '$lib/api/hooks';
+  import { toReactiveStore } from '$lib/api/reactiveQuery.svelte';
   import { SessionChat } from '$lib/components/chat';
 
   interface Props {
@@ -12,7 +13,11 @@
 
   const sessionId = $derived(data.sessionId);
 
-  const indexQuery = useIndexStatusQuery(sessionId);
+  // Convert to reactive store for TanStack Query
+  const sessionIdStore = toReactiveStore(() => sessionId);
+
+  // Use reactive store for TanStack Query updates on navigation
+  const indexQuery = useIndexStatusQuery(sessionIdStore);
 </script>
 
 <svelte:head>

@@ -1,4 +1,5 @@
 import { createQuery, createMutation, useQueryClient } from '@tanstack/svelte-query';
+import { derived, type Readable } from 'svelte/store';
 import {
   apiClient,
   type VersionResponse,
@@ -22,6 +23,32 @@ import {
 } from './client';
 import { ApiError } from './errors';
 import { queryKeys } from './queryKeys';
+
+// =============================================================================
+// Type Helpers
+// =============================================================================
+
+/**
+ * A Readable store or plain value. Used for reactive query parameters.
+ */
+type StoreOrVal<T> = T | Readable<T>;
+
+/**
+ * Helper to convert StoreOrVal to Readable store.
+ * Plain values become stores that always emit that value.
+ */
+function toStore<T>(value: StoreOrVal<T>): Readable<T> {
+  if (typeof value === 'object' && value !== null && 'subscribe' in value) {
+    return value as Readable<T>;
+  }
+  // Plain value - create a store that never changes
+  return {
+    subscribe: (fn: (value: T) => void) => {
+      fn(value as T);
+      return () => {};
+    },
+  };
+}
 
 // =============================================================================
 // Version Hooks
@@ -59,16 +86,20 @@ export function useSessionsQuery(limit = 20, offset = 0) {
 
 /**
  * Query hook for fetching a single session.
- * @param sessionId - Session UUID
+ * @param sessionId - Session UUID (can be a Svelte store for reactive updates)
  */
-export function useSessionQuery(sessionId: string | undefined) {
-  return createQuery<SessionResponse, ApiError>({
-    queryKey: queryKeys.sessions.detail(sessionId ?? ''),
-    queryFn: () => apiClient.getSession(sessionId!),
-    enabled: !!sessionId,
+export function useSessionQuery(sessionId: StoreOrVal<string | undefined>) {
+  const sessionIdStore = toStore(sessionId);
+
+  const options = derived(sessionIdStore, ($sessionId) => ({
+    queryKey: queryKeys.sessions.detail($sessionId ?? ''),
+    queryFn: () => apiClient.getSession($sessionId!),
+    enabled: !!$sessionId,
     staleTime: 60000, // 1 minute
     gcTime: 300000, // 5 minutes
-  });
+  }));
+
+  return createQuery<SessionResponse, ApiError>(options);
 }
 
 /**
@@ -134,36 +165,45 @@ export function useDeleteSessionMutation() {
 
 /**
  * Query hook for listing content items for a session.
- * @param sessionId - Session UUID
+ * @param sessionId - Session UUID (can be a Svelte store for reactive updates)
  * @param limit - Items per page (default: 50)
  * @param offset - Starting position (default: 0)
  */
-export function useContentQuery(sessionId: string | undefined, limit = 50, offset = 0) {
-  return createQuery<ContentListResponse, ApiError>({
-    queryKey: queryKeys.content.list(sessionId ?? '', { limit, offset }),
-    queryFn: () => apiClient.listContent(sessionId!, limit, offset),
-    enabled: !!sessionId,
+export function useContentQuery(sessionId: StoreOrVal<string | undefined>, limit = 50, offset = 0) {
+  const sessionIdStore = toStore(sessionId);
+
+  const options = derived(sessionIdStore, ($sessionId) => ({
+    queryKey: queryKeys.content.list($sessionId ?? '', { limit, offset }),
+    queryFn: () => apiClient.listContent($sessionId!, limit, offset),
+    enabled: !!$sessionId,
     staleTime: 30000, // 30 seconds
     gcTime: 300000, // 5 minutes
-  });
+  }));
+
+  return createQuery<ContentListResponse, ApiError>(options);
 }
 
 /**
  * Query hook for fetching a single content item.
- * @param sessionId - Session UUID
- * @param contentId - Content UUID
+ * @param sessionId - Session UUID (can be a Svelte store for reactive updates)
+ * @param contentId - Content UUID (can be a Svelte store for reactive updates)
  */
 export function useContentItemQuery(
-  sessionId: string | undefined,
-  contentId: string | undefined
+  sessionId: StoreOrVal<string | undefined>,
+  contentId: StoreOrVal<string | undefined>
 ) {
-  return createQuery<ContentItemResponse, ApiError>({
-    queryKey: queryKeys.content.detail(sessionId ?? '', contentId ?? ''),
-    queryFn: () => apiClient.getContent(sessionId!, contentId!),
-    enabled: !!sessionId && !!contentId,
+  const sessionIdStore = toStore(sessionId);
+  const contentIdStore = toStore(contentId);
+
+  const options = derived([sessionIdStore, contentIdStore], ([$sessionId, $contentId]) => ({
+    queryKey: queryKeys.content.detail($sessionId ?? '', $contentId ?? ''),
+    queryFn: () => apiClient.getContent($sessionId!, $contentId!),
+    enabled: !!$sessionId && !!$contentId,
     staleTime: 60000, // 1 minute
     gcTime: 300000, // 5 minutes
-  });
+  }));
+
+  return createQuery<ContentItemResponse, ApiError>(options);
 }
 
 /**
@@ -234,16 +274,20 @@ export function useDeleteContentMutation() {
 
 /**
  * Query hook for fetching workspace indexing status.
- * @param workspaceId - Workspace/Session UUID
+ * @param workspaceId - Workspace/Session UUID (can be a Svelte store for reactive updates)
  */
-export function useIndexStatusQuery(workspaceId: string | undefined) {
-  return createQuery<IndexStatusResponse, ApiError>({
-    queryKey: queryKeys.indexStatus(workspaceId ?? ''),
-    queryFn: () => apiClient.getIndexStatus(workspaceId!),
-    enabled: !!workspaceId,
+export function useIndexStatusQuery(workspaceId: StoreOrVal<string | undefined>) {
+  const workspaceIdStore = toStore(workspaceId);
+
+  const options = derived(workspaceIdStore, ($workspaceId) => ({
+    queryKey: queryKeys.indexStatus($workspaceId ?? ''),
+    queryFn: () => apiClient.getIndexStatus($workspaceId!),
+    enabled: !!$workspaceId,
     staleTime: 10000, // 10 seconds - status can change frequently
     gcTime: 60000, // 1 minute
-  });
+  }));
+
+  return createQuery<IndexStatusResponse, ApiError>(options);
 }
 
 /**
@@ -278,18 +322,23 @@ export function useIndexWorkspaceMutation() {
 
 /**
  * Query hook for fetching audit logs for a session.
- * @param sessionId - Session UUID
- * @param limit - Items per page (default: 50)
- * @param offset - Starting position (default: 0)
+ * @param params - Reactive store containing sessionId, limit, and offset
  */
-export function useAuditLogsQuery(sessionId: string | undefined, limit = 50, offset = 0) {
-  return createQuery<AuditLogListResponse, ApiError>({
-    queryKey: queryKeys.auditLogs(sessionId ?? '', { limit, offset }),
-    queryFn: () => apiClient.getAuditLogs(sessionId!, limit, offset),
-    enabled: !!sessionId,
-    staleTime: 15000, // 15 seconds - logs update on every operation
-    gcTime: 60000, // 1 minute
+export function useAuditLogsQuery(
+  params: Readable<{ sessionId: string | undefined; limit?: number; offset?: number }>
+) {
+  const options = derived(params, ($params) => {
+    const { sessionId, limit = 50, offset = 0 } = $params;
+    return {
+      queryKey: queryKeys.auditLogs(sessionId ?? '', { limit, offset }),
+      queryFn: () => apiClient.getAuditLogs(sessionId!, limit, offset),
+      enabled: !!sessionId,
+      staleTime: 15000, // 15 seconds - logs update on every operation
+      gcTime: 60000, // 1 minute
+    };
   });
+
+  return createQuery<AuditLogListResponse, ApiError>(options);
 }
 
 // =============================================================================
@@ -298,36 +347,45 @@ export function useAuditLogsQuery(sessionId: string | undefined, limit = 50, off
 
 /**
  * Query hook for fetching chat messages for a session.
- * @param sessionId - Session UUID
+ * @param sessionId - Session UUID (can be a Svelte store for reactive updates)
  * @param limit - Items per page (default: 50)
  * @param offset - Starting position (default: 0)
  */
-export function useChatMessagesQuery(sessionId: string | undefined, limit = 50, offset = 0) {
-  return createQuery<ChatMessageListResponse, ApiError>({
-    queryKey: queryKeys.chat.list(sessionId ?? '', { limit, offset }),
-    queryFn: () => apiClient.listChatMessages(sessionId!, limit, offset),
-    enabled: !!sessionId,
+export function useChatMessagesQuery(sessionId: StoreOrVal<string | undefined>, limit = 50, offset = 0) {
+  const sessionIdStore = toStore(sessionId);
+
+  const options = derived(sessionIdStore, ($sessionId) => ({
+    queryKey: queryKeys.chat.list($sessionId ?? '', { limit, offset }),
+    queryFn: () => apiClient.listChatMessages($sessionId!, limit, offset),
+    enabled: !!$sessionId,
     staleTime: 0, // Always refetch to show latest messages
     gcTime: 60000, // 1 minute
-  });
+  }));
+
+  return createQuery<ChatMessageListResponse, ApiError>(options);
 }
 
 /**
  * Query hook for fetching a single chat message.
- * @param sessionId - Session UUID
- * @param messageId - Message UUID
+ * @param sessionId - Session UUID (can be a Svelte store for reactive updates)
+ * @param messageId - Message UUID (can be a Svelte store for reactive updates)
  */
 export function useChatMessageQuery(
-  sessionId: string | undefined,
-  messageId: string | undefined
+  sessionId: StoreOrVal<string | undefined>,
+  messageId: StoreOrVal<string | undefined>
 ) {
-  return createQuery<ChatMessageResponse, ApiError>({
-    queryKey: queryKeys.chat.detail(sessionId ?? '', messageId ?? ''),
-    queryFn: () => apiClient.getChatMessage(sessionId!, messageId!),
-    enabled: !!sessionId && !!messageId,
+  const sessionIdStore = toStore(sessionId);
+  const messageIdStore = toStore(messageId);
+
+  const options = derived([sessionIdStore, messageIdStore], ([$sessionId, $messageId]) => ({
+    queryKey: queryKeys.chat.detail($sessionId ?? '', $messageId ?? ''),
+    queryFn: () => apiClient.getChatMessage($sessionId!, $messageId!),
+    enabled: !!$sessionId && !!$messageId,
     staleTime: 30000, // 30 seconds
     gcTime: 60000, // 1 minute
-  });
+  }));
+
+  return createQuery<ChatMessageResponse, ApiError>(options);
 }
 
 /**

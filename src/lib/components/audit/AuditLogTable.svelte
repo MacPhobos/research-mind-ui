@@ -1,6 +1,7 @@
 <script lang="ts">
   import { FileText, AlertCircle } from 'lucide-svelte';
   import { useAuditLogsQuery } from '$lib/api/hooks';
+  import { toReactiveStore } from '$lib/api/reactiveQuery.svelte';
   import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
   import EmptyState from '$lib/components/shared/EmptyState.svelte';
   import Pagination from '$lib/components/shared/Pagination.svelte';
@@ -15,12 +16,15 @@
   let limit = $state(20);
   let offset = $state(0);
 
-  // Use derived values for reactive tracking with TanStack Query
-  const currentSessionId = $derived(sessionId);
-  const currentLimit = $derived(limit);
-  const currentOffset = $derived(offset);
+  // Convert all query parameters to a reactive store for TanStack Query
+  const queryParams = toReactiveStore(() => ({
+    sessionId: sessionId as string | undefined,
+    limit,
+    offset,
+  }));
 
-  const query = useAuditLogsQuery(currentSessionId, currentLimit, currentOffset);
+  // Use reactive store for TanStack Query updates on navigation and pagination
+  const query = useAuditLogsQuery(queryParams);
 
   function handlePageChange(newOffset: number) {
     offset = newOffset;

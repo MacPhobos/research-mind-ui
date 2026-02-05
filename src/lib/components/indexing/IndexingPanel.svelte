@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Database, Clock, AlertCircle, CheckCircle } from 'lucide-svelte';
   import { useIndexStatusQuery } from '$lib/api/hooks';
+  import { toReactiveStore } from '$lib/api/reactiveQuery.svelte';
   import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
   import IndexStatusDisplay from './IndexStatusDisplay.svelte';
   import IndexTriggerButton from './IndexTriggerButton.svelte';
@@ -13,10 +14,11 @@
 
   let { sessionId }: Props = $props();
 
-  // Use derived value for reactive tracking with TanStack Query
-  const currentSessionId = $derived(sessionId);
+  // Convert to reactive store for TanStack Query
+  const sessionIdStore = toReactiveStore(() => sessionId);
 
-  const statusQuery = useIndexStatusQuery(currentSessionId);
+  // Use reactive store for TanStack Query updates on navigation
+  const statusQuery = useIndexStatusQuery(sessionIdStore);
 
   let lastResult = $state<IndexResultResponse | null>(null);
 
