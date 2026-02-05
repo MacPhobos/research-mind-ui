@@ -15,6 +15,8 @@ import {
   type ChatMessageListResponse,
   type ChatMessageResponse,
   type ChatMessageWithStreamUrlResponse,
+  type ExtractedLinksResponse,
+  type BatchContentResponse,
 } from './client';
 import { ApiError } from './errors';
 import { queryKeys } from './queryKeys';
@@ -384,6 +386,55 @@ export function useClearChatHistoryMutation() {
       queryClient.removeQueries({ queryKey: queryKeys.chat.all(sessionId) });
       // Invalidate to trigger refetch if components are mounted
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.all(sessionId) });
+    },
+  });
+}
+
+// =============================================================================
+// Multi-URL Feature Hooks
+// =============================================================================
+
+/**
+ * Mutation hook for extracting links from a URL.
+ * Used for link discovery before batch adding content.
+ */
+export function useExtractLinksMutation() {
+  return createMutation<
+    ExtractedLinksResponse,
+    ApiError,
+    { url: string; include_external?: boolean }
+  >({
+    mutationFn: (request) => apiClient.extractLinks(request),
+  });
+}
+
+/**
+ * Mutation hook for batch adding content to a session.
+ * Invalidates content list and session detail on success.
+ */
+export function useBatchAddContentMutation() {
+  const queryClient = useQueryClient();
+
+  return createMutation<
+    BatchContentResponse,
+    ApiError,
+    {
+      sessionId: string;
+      urls: Array<{ url: string; title?: string }>;
+      source_url?: string;
+    }
+  >({
+    mutationFn: ({ sessionId, urls, source_url }) =>
+      apiClient.batchAddContent(sessionId, { urls, source_url }),
+    onSuccess: (_data, variables) => {
+      // Invalidate content list for this session
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.content.all(variables.sessionId),
+      });
+      // Invalidate session detail (content_count may have changed)
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sessions.detail(variables.sessionId),
+      });
     },
   });
 }

@@ -24,6 +24,16 @@ export type ChatMessageListResponse = components['schemas']['ChatMessageListResp
 export type ChatMessageWithStreamUrlResponse = components['schemas']['ChatMessageWithStreamUrlResponse'];
 export type SendChatMessageRequest = components['schemas']['SendChatMessageRequest'];
 
+// Multi-URL feature types
+export type ExtractLinksRequest = components['schemas']['ExtractLinksRequest'];
+export type ExtractedLinkSchema = components['schemas']['ExtractedLinkSchema'];
+export type CategorizedLinksSchema = components['schemas']['CategorizedLinksSchema'];
+export type ExtractedLinksResponse = components['schemas']['ExtractedLinksResponse'];
+export type BatchUrlItem = components['schemas']['BatchUrlItem'];
+export type BatchAddContentRequest = components['schemas']['BatchAddContentRequest'];
+export type BatchContentItemResponse = components['schemas']['BatchContentItemResponse'];
+export type BatchContentResponse = components['schemas']['BatchContentResponse'];
+
 // =============================================================================
 // Zod Schemas for Runtime Validation
 // =============================================================================
@@ -145,6 +155,55 @@ const ChatMessageWithStreamUrlResponseSchema = ChatMessageResponseSchema.extend(
 const ChatMessageListResponseSchema = z.object({
   messages: z.array(ChatMessageResponseSchema),
   count: z.number(),
+});
+
+// =============================================================================
+// Multi-URL Feature Schemas
+// =============================================================================
+
+/** Single extracted link schema */
+const ExtractedLinkSchemaSchema = z.object({
+  url: z.string(),
+  text: z.string().nullable().optional(),
+  is_external: z.boolean(),
+  source_element: z.string().nullable().optional(),
+});
+
+/** Categorized links schema */
+const CategorizedLinksSchemaSchema = z.object({
+  main_content: z.array(ExtractedLinkSchemaSchema).optional(),
+  navigation: z.array(ExtractedLinkSchemaSchema).optional(),
+  sidebar: z.array(ExtractedLinkSchemaSchema).optional(),
+  footer: z.array(ExtractedLinkSchemaSchema).optional(),
+  other: z.array(ExtractedLinkSchemaSchema).optional(),
+});
+
+/** Extracted links response schema */
+const ExtractedLinksResponseSchema = z.object({
+  source_url: z.string(),
+  page_title: z.string().nullable().optional(),
+  extracted_at: z.string(),
+  link_count: z.number(),
+  categories: CategorizedLinksSchemaSchema,
+});
+
+/** Batch content item response schema */
+const BatchContentItemResponseSchema = z.object({
+  content_id: z.string().nullable().optional(),
+  url: z.string(),
+  status: z.enum(['success', 'error', 'duplicate']),
+  title: z.string().nullable().optional(),
+  error: z.string().nullable().optional(),
+});
+
+/** Batch content response schema */
+const BatchContentResponseSchema = z.object({
+  session_id: z.string(),
+  total_count: z.number(),
+  success_count: z.number(),
+  error_count: z.number(),
+  duplicate_count: z.number(),
+  items: z.array(BatchContentItemResponseSchema),
 });
 
 // =============================================================================
@@ -531,5 +590,62 @@ export const apiClient = {
    */
   getFullStreamUrl(streamUrl: string): string {
     return `${apiBaseUrl}${streamUrl}`;
+  },
+
+  // ---------------------------------------------------------------------------
+  // Multi-URL Feature
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Extract links from a URL for user selection.
+   * @param request - Object containing url and optional include_external flag
+   */
+  async extractLinks(request: {
+    url: string;
+    include_external?: boolean;
+  }): Promise<ExtractedLinksResponse> {
+    const response = await fetch(`${apiBaseUrl}/api/v1/content/extract-links`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: request.url,
+        include_external: request.include_external ?? true,
+      }),
+    });
+    if (!response.ok) {
+      throw await ApiError.fromResponse('Failed to extract links', response);
+    }
+    const data = await response.json();
+    return ExtractedLinksResponseSchema.parse(data);
+  },
+
+  /**
+   * Add multiple URLs to a session in batch.
+   * @param sessionId - Session UUID
+   * @param request - Object containing urls array and optional source_url
+   */
+  async batchAddContent(
+    sessionId: string,
+    request: {
+      urls: Array<{ url: string; title?: string }>;
+      source_url?: string;
+    }
+  ): Promise<BatchContentResponse> {
+    const response = await fetch(
+      `${apiBaseUrl}/api/v1/sessions/${sessionId}/content/batch`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          urls: request.urls,
+          source_url: request.source_url,
+        }),
+      }
+    );
+    if (!response.ok) {
+      throw await ApiError.fromResponse('Failed to add content in batch', response);
+    }
+    const data = await response.json();
+    return BatchContentResponseSchema.parse(data);
   },
 };

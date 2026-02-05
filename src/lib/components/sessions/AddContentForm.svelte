@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { FileText, Link, GitBranch, Loader, X } from 'lucide-svelte';
+  import { FileText, Link, Link2, GitBranch, Loader, X } from 'lucide-svelte';
   import { useAddContentMutation } from '$lib/api/hooks';
   import { toastStore } from '$lib/stores/toast';
+  import MultiUrlSelector from './MultiUrlSelector.svelte';
 
   interface Props {
     sessionId: string;
@@ -17,6 +18,7 @@
   const contentTypes = [
     { value: 'text', label: 'Text', icon: FileText },
     { value: 'url', label: 'URL', icon: Link },
+    { value: 'multi_url', label: 'Multi-URL', icon: Link2 },
     { value: 'git_repo', label: 'Git Repository', icon: GitBranch },
   ] as const;
 
@@ -140,6 +142,17 @@
     touched = { title: false, source: false, gitUrl: false };
     onCancel?.();
   }
+
+  function handleMultiUrlSuccess() {
+    // Reset form state and switch back to default content type
+    contentType = 'text';
+    title = '';
+    source = '';
+    gitUrl = '';
+    touched = { title: false, source: false, gitUrl: false };
+    // Call the parent's onSuccess if provided
+    onSuccess?.();
+  }
 </script>
 
 <form class="add-content-form" onsubmit={handleSubmit}>
@@ -166,7 +179,13 @@
     {/each}
   </div>
 
-  {#if contentType === 'git_repo'}
+  {#if contentType === 'multi_url'}
+    <MultiUrlSelector
+      {sessionId}
+      onSuccess={handleMultiUrlSuccess}
+      onCancel={onCancel}
+    />
+  {:else if contentType === 'git_repo'}
     <div class="form-group">
       <label for="git-url">
         Git URL <span class="required">*</span>
@@ -235,31 +254,33 @@
     </div>
   {/if}
 
-  {#if $mutation.isError}
-    <div class="form-error">
-      <p>{$mutation.error?.message || 'Failed to add content'}</p>
+  {#if contentType !== 'multi_url'}
+    {#if $mutation.isError}
+      <div class="form-error">
+        <p>{$mutation.error?.message || 'Failed to add content'}</p>
+      </div>
+    {/if}
+
+    <div class="form-actions">
+      {#if onCancel}
+        <button type="button" class="cancel-btn" onclick={handleCancel}>
+          Cancel
+        </button>
+      {/if}
+      <button
+        type="submit"
+        class="submit-btn"
+        disabled={!isValid() || $mutation.isPending}
+      >
+        {#if $mutation.isPending}
+          <Loader size={16} class="spinner" />
+          Adding...
+        {:else}
+          Add Content
+        {/if}
+      </button>
     </div>
   {/if}
-
-  <div class="form-actions">
-    {#if onCancel}
-      <button type="button" class="cancel-btn" onclick={handleCancel}>
-        Cancel
-      </button>
-    {/if}
-    <button
-      type="submit"
-      class="submit-btn"
-      disabled={!isValid() || $mutation.isPending}
-    >
-      {#if $mutation.isPending}
-        <Loader size={16} class="spinner" />
-        Adding...
-      {:else}
-        Add Content
-      {/if}
-    </button>
-  </div>
 </form>
 
 <style>

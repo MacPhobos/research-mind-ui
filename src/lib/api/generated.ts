@@ -187,6 +187,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/content/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Batch Add Content
+         * @description Add multiple URLs as content items to a session.
+         *
+         *     Supports batch adding of URLs with automatic duplicate detection.
+         *     Duplicates are identified by matching source_ref (URL) against existing
+         *     content in the session, as well as within the batch itself.
+         *
+         *     Args:
+         *         session_id: Target session ID.
+         *         request: Batch add request containing list of URLs (1-50).
+         *
+         *     Returns:
+         *         BatchContentResponse with per-item results and summary counts.
+         */
+        post: operations["batch_add_content_api_v1_sessions__session_id__content_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content/extract-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract Links
+         * @description Extract and categorize links from a web page.
+         *
+         *     Fetches the specified URL and extracts all links, categorizing them by
+         *     their source element (main content, navigation, sidebar, footer, other).
+         *
+         *     Args:
+         *         request: Contains the URL to extract links from and options.
+         *
+         *     Returns:
+         *         ExtractedLinksResponse with categorized links and metadata.
+         *
+         *     Raises:
+         *         HTTPException: 400 if URL is invalid or extraction fails.
+         */
+        post: operations["extract_links_api_v1_content_extract_links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/audit": {
         parameters: {
             query?: never;
@@ -230,7 +293,11 @@ export interface paths {
          *     The session must be indexed before chat is available.
          */
         post: operations["send_chat_message_api_v1_sessions__session_id__chat_post"];
-        delete?: never;
+        /**
+         * Clear Chat History
+         * @description Clear all chat messages for a session.
+         */
+        delete: operations["clear_chat_history_api_v1_sessions__session_id__chat_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -355,6 +422,107 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /**
+         * BatchAddContentRequest
+         * @description Request body for POST /api/v1/sessions/{session_id}/content/batch.
+         */
+        BatchAddContentRequest: {
+            /**
+             * Urls
+             * @description List of URLs to add (1-50)
+             */
+            urls: components["schemas"]["BatchUrlItem"][];
+            /**
+             * Source Url
+             * @description Source URL where links were extracted from
+             */
+            source_url?: string | null;
+        };
+        /**
+         * BatchContentItemResponse
+         * @description Result for a single URL in batch add response.
+         */
+        BatchContentItemResponse: {
+            /**
+             * Content Id
+             * @description Content ID if successfully created
+             */
+            content_id?: string | null;
+            /**
+             * Url
+             * @description The URL that was processed
+             */
+            url: string;
+            /**
+             * Status
+             * @description Processing status
+             * @enum {string}
+             */
+            status: "success" | "error" | "duplicate";
+            /**
+             * Title
+             * @description Content title
+             */
+            title?: string | null;
+            /**
+             * Error
+             * @description Error message if failed
+             */
+            error?: string | null;
+        };
+        /**
+         * BatchContentResponse
+         * @description Response for POST /api/v1/sessions/{session_id}/content/batch.
+         */
+        BatchContentResponse: {
+            /**
+             * Session Id
+             * @description Session ID
+             */
+            session_id: string;
+            /**
+             * Total Count
+             * @description Total URLs submitted
+             */
+            total_count: number;
+            /**
+             * Success Count
+             * @description Number of successful additions
+             */
+            success_count: number;
+            /**
+             * Error Count
+             * @description Number of failed additions
+             */
+            error_count: number;
+            /**
+             * Duplicate Count
+             * @description Number of duplicate URLs
+             */
+            duplicate_count: number;
+            /**
+             * Items
+             * @description Per-URL results
+             */
+            items: components["schemas"]["BatchContentItemResponse"][];
+        };
+        /**
+         * BatchUrlItem
+         * @description Single URL item within a batch add content request.
+         */
+        BatchUrlItem: {
+            /**
+             * Url
+             * Format: uri
+             * @description URL to add as content
+             */
+            url: string;
+            /**
+             * Title
+             * @description Optional title override
+             */
+            title?: string | null;
+        };
         /** Body_add_content_api_v1_sessions__session_id__content__post */
         Body_add_content_api_v1_sessions__session_id__content__post: {
             /**
@@ -382,6 +550,37 @@ export interface components {
              * @description File to upload (for file_upload type)
              */
             file?: string | null;
+        };
+        /**
+         * CategorizedLinksSchema
+         * @description Links grouped by page section/category.
+         */
+        CategorizedLinksSchema: {
+            /**
+             * Main Content
+             * @description Links from main content area
+             */
+            main_content?: components["schemas"]["ExtractedLinkSchema"][];
+            /**
+             * Navigation
+             * @description Links from navigation elements
+             */
+            navigation?: components["schemas"]["ExtractedLinkSchema"][];
+            /**
+             * Sidebar
+             * @description Links from sidebar areas
+             */
+            sidebar?: components["schemas"]["ExtractedLinkSchema"][];
+            /**
+             * Footer
+             * @description Links from footer area
+             */
+            footer?: components["schemas"]["ExtractedLinkSchema"][];
+            /**
+             * Other
+             * @description Links from other/unclassified areas
+             */
+            other?: components["schemas"]["ExtractedLinkSchema"][];
         };
         /**
          * ChatMessageListResponse
@@ -532,6 +731,79 @@ export interface components {
             name: string;
             /** Description */
             description?: string | null;
+        };
+        /**
+         * ExtractLinksRequest
+         * @description Request body for POST /api/v1/sessions/{session_id}/content/extract-links.
+         */
+        ExtractLinksRequest: {
+            /**
+             * Url
+             * Format: uri
+             * @description URL to extract links from
+             */
+            url: string;
+            /**
+             * Include External
+             * @description Whether to include external links
+             * @default true
+             */
+            include_external: boolean;
+        };
+        /**
+         * ExtractedLinkSchema
+         * @description Single extracted link from a page.
+         */
+        ExtractedLinkSchema: {
+            /**
+             * Url
+             * @description The extracted link URL
+             */
+            url: string;
+            /**
+             * Text
+             * @description Link text/anchor text
+             */
+            text?: string | null;
+            /**
+             * Is External
+             * @description Whether link points to external domain
+             */
+            is_external: boolean;
+            /**
+             * Source Element
+             * @description HTML element type (a, img, etc.)
+             */
+            source_element?: string | null;
+        };
+        /**
+         * ExtractedLinksResponse
+         * @description Response for POST /api/v1/sessions/{session_id}/content/extract-links.
+         */
+        ExtractedLinksResponse: {
+            /**
+             * Source Url
+             * @description URL that was analyzed
+             */
+            source_url: string;
+            /**
+             * Page Title
+             * @description Title of the page
+             */
+            page_title?: string | null;
+            /**
+             * Extracted At
+             * Format: date-time
+             * @description Timestamp of extraction
+             */
+            extracted_at: string;
+            /**
+             * Link Count
+             * @description Total number of links extracted
+             */
+            link_count: number;
+            /** @description Links organized by page section */
+            categories: components["schemas"]["CategorizedLinksSchema"];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1072,6 +1344,74 @@ export interface operations {
             };
         };
     };
+    batch_add_content_api_v1_sessions__session_id__content_batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchAddContentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchContentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extract_links_api_v1_content_extract_links_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtractLinksRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractedLinksResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_audit_logs_api_v1_sessions__session_id__audit_get: {
         parameters: {
             query?: {
@@ -1163,6 +1503,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ChatMessageWithStreamUrlResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_chat_history_api_v1_sessions__session_id__chat_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
