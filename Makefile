@@ -4,7 +4,7 @@ help:
 	@echo "Research Mind UI - Available targets:"
 	@echo ""
 	@echo "  make install     Install dependencies"
-	@echo "  make dev         Start development server on port 5173"
+	@echo "  make dev         Start development server on port 15000"
 	@echo "  make build       Build for production"
 	@echo "  make preview     Preview production build locally"
 	@echo "  make test        Run all tests once"

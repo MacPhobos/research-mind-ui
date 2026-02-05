@@ -16,6 +16,8 @@ This is a modern, type-safe SvelteKit application that provides a user interface
 
 ## Getting Started
 
+> **First time?** See the monorepo [Getting Started Guide](../docs/GETTING_STARTED.md) for complete prerequisites and setup.
+
 ### Prerequisites
 
 - Node.js 20.x or 22.x
