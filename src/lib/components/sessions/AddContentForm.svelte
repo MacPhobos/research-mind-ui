@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText, Link, Link2, GitBranch, Loader, X } from 'lucide-svelte';
+  import { FileText, Link, Link2, GitBranch, FileUp, Loader, X } from 'lucide-svelte';
   import { useAddContentMutation } from '$lib/api/hooks';
   import { toastStore } from '$lib/stores/toast';
   import MultiUrlSelector from './MultiUrlSelector.svelte';
@@ -20,6 +20,7 @@
     { value: 'url', label: 'URL', icon: Link },
     { value: 'multi_url', label: 'Multi-URL', icon: Link2 },
     { value: 'git_repo', label: 'Git Repository', icon: GitBranch },
+    { value: 'document', label: 'Document', icon: FileUp },
   ] as const;
 
   type ContentType = (typeof contentTypes)[number]['value'];
@@ -29,7 +30,9 @@
   let title = $state('');
   let source = $state('');
   let gitUrl = $state('');
-  let touched = $state({ title: false, source: false, gitUrl: false });
+  let selectedFile = $state<File | null>(null);
+  let documentTitle = $state('');
+  let touched = $state({ title: false, source: false, gitUrl: false, file: false, documentTitle: false });
 
   // Validation
   const titleError = $derived(
@@ -53,9 +56,46 @@
     null
   );
 
+  // Document validation constants
+  const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'md', 'txt'];
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+  function getFileExtension(filename: string): string {
+    const parts = filename.split('.');
+    return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : '';
+  }
+
+  function isValidFileExtension(file: File): boolean {
+    const ext = getFileExtension(file.name);
+    return ALLOWED_EXTENSIONS.includes(ext);
+  }
+
+  function isValidFileSize(file: File): boolean {
+    return file.size <= MAX_FILE_SIZE;
+  }
+
+  const fileError = $derived(() => {
+    if (!touched.file) return null;
+    if (!selectedFile) return 'File is required';
+    if (!isValidFileExtension(selectedFile)) {
+      return `Invalid file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`;
+    }
+    if (!isValidFileSize(selectedFile)) {
+      return 'File size must be under 50MB';
+    }
+    return null;
+  });
+
   const isValid = $derived(() => {
     if (contentType === 'git_repo') {
       return gitUrl.trim().length > 0 && isValidGitUrl(gitUrl.trim());
+    }
+    if (contentType === 'document') {
+      return (
+        selectedFile !== null &&
+        isValidFileExtension(selectedFile) &&
+        isValidFileSize(selectedFile)
+      );
     }
     return (
       title.trim().length > 0 &&
@@ -110,6 +150,16 @@
             source: gitUrl.trim(),
           },
         });
+      } else if (contentType === 'document') {
+        // For document, use file upload with optional title
+        await $mutation.mutateAsync({
+          sessionId,
+          contentType: 'document',
+          options: {
+            title: documentTitle.trim() || undefined,
+            file: selectedFile!,
+          },
+        });
       } else {
         await $mutation.mutateAsync({
           sessionId,
@@ -127,7 +177,9 @@
       title = '';
       source = '';
       gitUrl = '';
-      touched = { title: false, source: false, gitUrl: false };
+      selectedFile = null;
+      documentTitle = '';
+      touched = { title: false, source: false, gitUrl: false, file: false, documentTitle: false };
 
       onSuccess?.();
     } catch {
@@ -139,7 +191,9 @@
     title = '';
     source = '';
     gitUrl = '';
-    touched = { title: false, source: false, gitUrl: false };
+    selectedFile = null;
+    documentTitle = '';
+    touched = { title: false, source: false, gitUrl: false, file: false, documentTitle: false };
     onCancel?.();
   }
 
@@ -149,10 +203,32 @@
     title = '';
     source = '';
     gitUrl = '';
-    touched = { title: false, source: false, gitUrl: false };
+    selectedFile = null;
+    documentTitle = '';
+    touched = { title: false, source: false, gitUrl: false, file: false, documentTitle: false };
     // Call the parent's onSuccess if provided
     onSuccess?.();
   }
+
+  function handleFileChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      selectedFile = input.files[0];
+      touched.file = true;
+    } else {
+      selectedFile = null;
+    }
+  }
+
+  // Reset file state when switching away from document content type
+  $effect(() => {
+    if (contentType !== 'document') {
+      selectedFile = null;
+      documentTitle = '';
+      touched.file = false;
+      touched.documentTitle = false;
+    }
+  });
 </script>
 
 <form class="add-content-form" onsubmit={handleSubmit}>
@@ -203,6 +279,39 @@
         <p class="error-text">{gitUrlError}</p>
       {/if}
       <p class="help-text">Supports HTTPS, SSH (git@...), and git:// URLs</p>
+    </div>
+  {:else if contentType === 'document'}
+    <div class="form-group">
+      <label for="document-file">
+        File <span class="required">*</span>
+      </label>
+      <input
+        id="document-file"
+        type="file"
+        accept=".pdf,.docx,.md,.txt"
+        onchange={handleFileChange}
+        class:error={fileError()}
+      />
+      {#if fileError()}
+        <p class="error-text">{fileError()}</p>
+      {/if}
+      {#if selectedFile}
+        <p class="file-info">Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)</p>
+      {/if}
+      <p class="help-text">Supported formats: PDF, DOCX, Markdown, Plain Text (max 50MB)</p>
+    </div>
+
+    <div class="form-group">
+      <label for="document-title">
+        Title <span class="optional">(optional)</span>
+      </label>
+      <input
+        id="document-title"
+        type="text"
+        bind:value={documentTitle}
+        onblur={() => (touched.documentTitle = true)}
+        placeholder="Defaults to filename"
+      />
     </div>
   {:else}
     <div class="form-group">
@@ -418,6 +527,40 @@
     margin: var(--space-2) 0 0 0;
     font-size: var(--font-size-xs);
     color: var(--text-muted);
+  }
+
+  .file-info {
+    margin: var(--space-2) 0 0 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .optional {
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  input[type="file"] {
+    padding: var(--space-2);
+  }
+
+  input[type="file"]::file-selector-button {
+    padding: var(--space-2) var(--space-3);
+    margin-right: var(--space-3);
+    background: var(--bg-hover);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  input[type="file"]::file-selector-button:hover {
+    background: var(--bg-secondary);
+    border-color: var(--primary-color);
   }
 
   .form-error {

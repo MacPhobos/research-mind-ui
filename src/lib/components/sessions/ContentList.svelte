@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText, Link, Trash2, AlertCircle, GitBranch } from 'lucide-svelte';
+  import { FileText, Link, Trash2, AlertCircle, GitBranch, FileUp } from 'lucide-svelte';
   import type { ContentItemResponse } from '$lib/api/client';
   import { useDeleteContentMutation } from '$lib/api/hooks';
   import { toastStore } from '$lib/stores/toast';
@@ -28,6 +28,8 @@
         return Link;
       case 'git_repo':
         return GitBranch;
+      case 'document':
+        return FileUp;
       case 'text':
       default:
         return FileText;
