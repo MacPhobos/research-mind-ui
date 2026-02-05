@@ -17,6 +17,8 @@ import {
   type ChatMessageWithStreamUrlResponse,
   type ExtractedLinksResponse,
   type BatchContentResponse,
+  type ChatExportRequest,
+  type ChatExportResponse,
 } from './client';
 import { ApiError } from './errors';
 import { queryKeys } from './queryKeys';
@@ -436,5 +438,38 @@ export function useBatchAddContentMutation() {
         queryKey: queryKeys.sessions.detail(variables.sessionId),
       });
     },
+  });
+}
+
+// =============================================================================
+// Chat Export Hooks
+// =============================================================================
+
+/**
+ * Mutation hook for exporting full chat history.
+ * Returns blob and filename for download.
+ */
+export function useExportChatHistoryMutation() {
+  return createMutation<
+    ChatExportResponse,
+    ApiError,
+    { sessionId: string; request: ChatExportRequest }
+  >({
+    mutationFn: ({ sessionId, request }) => apiClient.exportChatHistory(sessionId, request),
+  });
+}
+
+/**
+ * Mutation hook for exporting a single Q/A pair.
+ * Returns blob and filename for download.
+ */
+export function useExportSingleMessageMutation() {
+  return createMutation<
+    ChatExportResponse,
+    ApiError,
+    { sessionId: string; messageId: string; request: ChatExportRequest }
+  >({
+    mutationFn: ({ sessionId, messageId, request }) =>
+      apiClient.exportSingleMessage(sessionId, messageId, request),
   });
 }

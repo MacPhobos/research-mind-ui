@@ -34,6 +34,20 @@ export type BatchAddContentRequest = components['schemas']['BatchAddContentReque
 export type BatchContentItemResponse = components['schemas']['BatchContentItemResponse'];
 export type BatchContentResponse = components['schemas']['BatchContentResponse'];
 
+// Chat export types
+export type ChatExportFormat = 'pdf' | 'markdown';
+
+export interface ChatExportRequest {
+  format: ChatExportFormat;
+  include_metadata?: boolean;
+  include_timestamps?: boolean;
+}
+
+export interface ChatExportResponse {
+  blob: Blob;
+  filename: string;
+}
+
 // =============================================================================
 // Zod Schemas for Runtime Validation
 // =============================================================================
@@ -647,5 +661,81 @@ export const apiClient = {
     }
     const data = await response.json();
     return BatchContentResponseSchema.parse(data);
+  },
+
+  // ---------------------------------------------------------------------------
+  // Chat Export
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Export full chat history to PDF or Markdown.
+   * @param sessionId - Session UUID
+   * @param request - Export options (format, include_metadata, include_timestamps)
+   */
+  async exportChatHistory(
+    sessionId: string,
+    request: ChatExportRequest
+  ): Promise<ChatExportResponse> {
+    const response = await fetch(
+      `${apiBaseUrl}/api/v1/sessions/${sessionId}/chat/export`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      }
+    );
+    if (!response.ok) {
+      throw await ApiError.fromResponse('Failed to export chat history', response);
+    }
+
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = `chat-export-${sessionId}.${request.format === 'pdf' ? 'pdf' : 'md'}`;
+
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    return { blob, filename };
+  },
+
+  /**
+   * Export a single Q/A pair to PDF or Markdown.
+   * @param sessionId - Session UUID
+   * @param messageId - Assistant message UUID (exports preceding user message too)
+   * @param request - Export options (format, include_metadata, include_timestamps)
+   */
+  async exportSingleMessage(
+    sessionId: string,
+    messageId: string,
+    request: ChatExportRequest
+  ): Promise<ChatExportResponse> {
+    const response = await fetch(
+      `${apiBaseUrl}/api/v1/sessions/${sessionId}/chat/${messageId}/export`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      }
+    );
+    if (!response.ok) {
+      throw await ApiError.fromResponse('Failed to export message', response);
+    }
+
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = `qa-export-${messageId}.${request.format === 'pdf' ? 'pdf' : 'md'}`;
+
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    return { blob, filename };
   },
 };

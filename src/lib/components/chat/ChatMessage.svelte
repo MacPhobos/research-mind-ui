@@ -1,13 +1,18 @@
 <script lang="ts">
   import { slide } from 'svelte/transition';
-  import { User, Bot, AlertCircle, Loader2, ChevronRight, ChevronDown } from 'lucide-svelte';
+  import { User, Bot, AlertCircle, Loader2, ChevronRight, ChevronDown, Download } from 'lucide-svelte';
   import { formatRelativeTime, formatDuration } from '$lib/utils/format';
-  import type { ChatMessageResponse } from '$lib/api/client';
+  import type { ChatMessageResponse, ChatExportFormat } from '$lib/api/client';
   import type { ChatResultMetadata } from '$lib/types/chat';
+  import { useExportSingleMessageMutation } from '$lib/api/hooks';
+  import { downloadBlob } from '$lib/utils/download';
+  import { toastStore } from '$lib/stores/toast';
+  import ExportDialog from './ExportDialog.svelte';
   import MarkdownContent from './MarkdownContent.svelte';
 
   interface Props {
     message: ChatMessageResponse;
+    sessionId?: string;
     isStreaming?: boolean;
     /** @deprecated Use stage1Content and stage2Content instead */
     streamContent?: string;
@@ -21,6 +26,7 @@
 
   let {
     message,
+    sessionId = '',
     isStreaming = false,
     streamContent = '',
     stage1Content = '',
@@ -30,6 +36,10 @@
 
   // Expandable accordion state
   let expanded = $state(false);
+
+  // Export dialog state
+  let showExportDialog = $state(false);
+  const exportMutation = useExportSingleMessageMutation();
 
   // Determine which content to display for primary area
   const displayContent = $derived(() => {
@@ -78,6 +88,46 @@
       expanded = !expanded;
     }
   }
+
+  // Export handlers
+  function openExportDialog() {
+    showExportDialog = true;
+  }
+
+  async function handleExport(
+    format: ChatExportFormat,
+    includeMetadata: boolean,
+    includeTimestamps: boolean
+  ) {
+    if (!sessionId) {
+      toastStore.error('Session ID is required for export');
+      return;
+    }
+    try {
+      const response = await $exportMutation.mutateAsync({
+        sessionId,
+        messageId: message.message_id,
+        request: {
+          format,
+          include_metadata: includeMetadata,
+          include_timestamps: includeTimestamps,
+        },
+      });
+      downloadBlob(response.blob, response.filename);
+      toastStore.success(`Q&A exported as ${format.toUpperCase()}`);
+      showExportDialog = false;
+    } catch (err) {
+      console.error('Failed to export message:', err);
+      toastStore.error('Failed to export message');
+    }
+  }
+
+  function handleExportCancel() {
+    showExportDialog = false;
+  }
+
+  // Check if export is available (assistant messages only, not streaming)
+  const canExport = $derived(!isUser && !isStreaming && sessionId && message.status === 'completed');
 </script>
 
 <div class="chat-message" class:user={isUser} class:assistant={!isUser} class:error={isError}>
@@ -98,6 +148,21 @@
           <Loader2 size={12} class="spinner" />
           Typing...
         </span>
+      {/if}
+      {#if canExport}
+        <button
+          type="button"
+          class="export-message-btn"
+          onclick={openExportDialog}
+          title="Export this Q&A"
+          disabled={$exportMutation.isPending}
+        >
+          {#if $exportMutation.isPending}
+            <Loader2 size={14} class="spinner" />
+          {:else}
+            <Download size={14} />
+          {/if}
+        </button>
       {/if}
     </div>
 
@@ -204,6 +269,16 @@
   </div>
 </div>
 
+{#if canExport}
+  <ExportDialog
+    bind:open={showExportDialog}
+    title="Export Q&A"
+    onExport={handleExport}
+    onCancel={handleExportCancel}
+    isLoading={$exportMutation.isPending}
+  />
+{/if}
+
 <style>
   .chat-message {
     display: flex;
@@ -280,6 +355,39 @@
   }
 
   .streaming-indicator :global(.spinner) {
+    animation: spin 1s linear infinite;
+  }
+
+  .export-message-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    padding: 0.25rem;
+    background: transparent;
+    border: none;
+    border-radius: var(--border-radius-sm, 4px);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast, 0.15s ease);
+    opacity: 0;
+  }
+
+  .chat-message:hover .export-message-btn {
+    opacity: 1;
+  }
+
+  .export-message-btn:hover:not(:disabled) {
+    color: var(--primary-color);
+    background: var(--primary-bg, rgba(0, 102, 204, 0.1));
+  }
+
+  .export-message-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .export-message-btn :global(.spinner) {
     animation: spin 1s linear infinite;
   }
 

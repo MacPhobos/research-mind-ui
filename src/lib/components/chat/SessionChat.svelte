@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { Send, Loader2, MessageSquare, AlertCircle, RefreshCw, Trash2 } from 'lucide-svelte';
+  import { Send, Loader2, MessageSquare, AlertCircle, RefreshCw, Trash2, Download } from 'lucide-svelte';
   import {
     useChatMessagesQuery,
     useSendChatMessageMutation,
     useClearChatHistoryMutation,
+    useExportChatHistoryMutation,
   } from '$lib/api/hooks';
   import { createChatStream } from '$lib/hooks/useChatStream.svelte';
   import { useQueryClient } from '@tanstack/svelte-query';
@@ -11,8 +12,10 @@
   import ChatMessage from './ChatMessage.svelte';
   import LoadingSpinner from '$lib/components/shared/LoadingSpinner.svelte';
   import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
+  import ExportDialog from './ExportDialog.svelte';
   import { toastStore } from '$lib/stores/toast';
-  import type { ChatMessageResponse } from '$lib/api/client';
+  import { downloadBlob } from '$lib/utils/download';
+  import type { ChatMessageResponse, ChatExportFormat } from '$lib/api/client';
 
   interface Props {
     sessionId: string;
@@ -33,9 +36,11 @@
   const messagesQuery = useChatMessagesQuery(sessionId);
   const sendMutation = useSendChatMessageMutation();
   const clearMutation = useClearChatHistoryMutation();
+  const exportMutation = useExportChatHistoryMutation();
 
-  // Clear chat dialog state
+  // Dialog state
   let showClearDialog = $state(false);
+  let showExportDialog = $state(false);
 
   // SSE stream handler
   const stream = createChatStream(() => {
@@ -163,6 +168,38 @@
     showClearDialog = false;
   }
 
+  // Export chat history handlers
+  function openExportDialog() {
+    showExportDialog = true;
+  }
+
+  async function handleExport(
+    format: ChatExportFormat,
+    includeMetadata: boolean,
+    includeTimestamps: boolean
+  ) {
+    try {
+      const response = await $exportMutation.mutateAsync({
+        sessionId,
+        request: {
+          format,
+          include_metadata: includeMetadata,
+          include_timestamps: includeTimestamps,
+        },
+      });
+      downloadBlob(response.blob, response.filename);
+      toastStore.success(`Chat exported as ${format.toUpperCase()}`);
+      showExportDialog = false;
+    } catch (err) {
+      console.error('Failed to export chat:', err);
+      toastStore.error('Failed to export chat history');
+    }
+  }
+
+  function handleExportCancel() {
+    showExportDialog = false;
+  }
+
   // Check if sending is disabled
   const isSendDisabled = $derived(
     !inputContent.trim() ||
@@ -219,6 +256,7 @@
         {#each displayMessages() as message (message.message_id)}
           <ChatMessage
             {message}
+            {sessionId}
             isStreaming={stream.isStreaming && message.message_id === stream.messageId}
             stage1Content={message.message_id === stream.messageId ? stream.stage1Content : ''}
             stage2Content={message.message_id === stream.messageId ? stream.stage2Content : ''}
@@ -268,6 +306,15 @@
       <div class="action-buttons">
         <button
           type="button"
+          onclick={openExportDialog}
+          disabled={!isIndexed || stream.isStreaming || $exportMutation.isPending || displayMessages().length === 0}
+          class="export-btn"
+          title="Export chat history"
+        >
+          <Download size={18} />
+        </button>
+        <button
+          type="button"
           onclick={openClearDialog}
           disabled={!isIndexed || stream.isStreaming || $clearMutation.isPending || displayMessages().length === 0}
           class="clear-btn"
@@ -300,6 +347,14 @@
     variant="danger"
     onConfirm={handleClearConfirm}
     onCancel={handleClearCancel}
+  />
+
+  <ExportDialog
+    bind:open={showExportDialog}
+    title="Export Chat History"
+    onExport={handleExport}
+    onCancel={handleExportCancel}
+    isLoading={$exportMutation.isPending}
   />
 </div>
 
@@ -497,6 +552,7 @@
     gap: var(--space-2);
   }
 
+  .export-btn,
   .clear-btn {
     display: flex;
     align-items: center;
@@ -510,12 +566,19 @@
     transition: all var(--transition-fast);
   }
 
+  .export-btn:hover:not(:disabled) {
+    background: var(--primary-bg, rgba(0, 102, 204, 0.1));
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+  }
+
   .clear-btn:hover:not(:disabled) {
     background: var(--error-bg, rgba(239, 68, 68, 0.1));
     border-color: var(--error-color);
     color: var(--error-color);
   }
 
+  .export-btn:disabled,
   .clear-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
