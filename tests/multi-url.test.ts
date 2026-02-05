@@ -331,20 +331,20 @@ describe('Multi-URL API Client', () => {
               detail: {
                 error: {
                   code: 'TOO_MANY_URLS',
-                  message: 'Maximum 50 URLs allowed',
+                  message: 'Maximum 500 URLs allowed',
                 },
               },
             }),
         } as Response)
       );
 
-      const tooManyUrls = Array.from({ length: 51 }, (_, i) => ({
+      const tooManyUrls = Array.from({ length: 501 }, (_, i) => ({
         url: `https://example.com/page${i}`,
       }));
 
       await expect(
         apiClient.batchAddContent('session-123', { urls: tooManyUrls })
-      ).rejects.toThrow('Maximum 50 URLs allowed');
+      ).rejects.toThrow('Maximum 500 URLs allowed');
     });
 
     it('should handle duplicate URLs', async () => {
