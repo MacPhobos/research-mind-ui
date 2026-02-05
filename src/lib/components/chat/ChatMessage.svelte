@@ -158,9 +158,9 @@
           disabled={$exportMutation.isPending}
         >
           {#if $exportMutation.isPending}
-            <Loader2 size={14} class="spinner" />
+            <Loader2 size={21} class="spinner" />
           {:else}
-            <Download size={14} />
+            <Download size={21} />
           {/if}
         </button>
       {/if}
@@ -363,7 +363,7 @@
     align-items: center;
     justify-content: center;
     margin-left: auto;
-    padding: 0.25rem;
+    padding: 0.375rem;
     background: transparent;
     border: none;
     border-radius: var(--border-radius-sm, 4px);

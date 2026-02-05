@@ -44,3 +44,6 @@ Thumbs.db
 /.kuzu-memory/
 /.kuzu-memory-backups/
 /.mcp-browser/
+
+# MCP Vector Search index directory
+.mcp-vector-search/
