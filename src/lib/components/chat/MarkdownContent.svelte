@@ -208,6 +208,42 @@
     color: var(--text-muted);
   }
 
+  /* Sources/References section styling */
+  :global(.markdown-content .sources-section) {
+    margin-top: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-sm);
+    border-left: 3px solid var(--primary-color);
+    font-size: var(--font-size-sm);
+  }
+
+  :global(.markdown-content .sources-section h2) {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 0.5rem 0;
+    padding-bottom: 0;
+    border-bottom: none;
+    color: var(--text-secondary);
+  }
+
+  :global(.markdown-content .sources-section ul) {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  :global(.markdown-content .sources-section li) {
+    margin-bottom: 0.25rem;
+  }
+
+  :global(.markdown-content .sources-section code) {
+    font-size: var(--font-size-xs);
+    background: var(--bg-hover);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+  }
+
   /* Streaming indicator - cursor blink effect at the end */
   .markdown-content.streaming::after {
     content: '';

@@ -13,6 +13,7 @@ import {
   parseEventType,
   formatSystemEvent,
   type ChatResultMetadata,
+  type SourceCitation,
 } from '$lib/types/chat';
 
 export type StreamStatus = 'idle' | 'connecting' | 'streaming' | 'completed' | 'error';
@@ -170,6 +171,7 @@ export function createChatStream(onComplete?: () => void) {
       token_count: usage?.output_tokens as number | undefined,
       input_tokens: usage?.input_tokens as number | undefined,
       cache_read_tokens: usage?.cache_read_input_tokens as number | undefined,
+      sources: data.sources as SourceCitation[] | undefined,
     };
   }
 

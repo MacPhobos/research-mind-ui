@@ -44,6 +44,15 @@ export enum ChatStreamStage {
 }
 
 /**
+ * A structured source citation returned by the backend.
+ */
+export interface SourceCitation {
+  file_path: string;
+  content_id?: string;
+  title: string;
+}
+
+/**
  * Metadata from the result event.
  */
 export interface ChatResultMetadata {
@@ -63,6 +72,8 @@ export interface ChatResultMetadata {
   session_id?: string;
   /** Number of conversation turns */
   num_turns?: number;
+  /** Structured source citations from the backend */
+  sources?: SourceCitation[];
 }
 
 /**

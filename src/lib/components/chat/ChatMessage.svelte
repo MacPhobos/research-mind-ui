@@ -3,7 +3,7 @@
   import { User, Bot, AlertCircle, Loader2, ChevronRight, ChevronDown, Download } from 'lucide-svelte';
   import { formatRelativeTime, formatDuration } from '$lib/utils/format';
   import type { ChatMessageResponse, ChatExportFormat } from '$lib/api/client';
-  import type { ChatResultMetadata } from '$lib/types/chat';
+  import type { ChatResultMetadata, SourceCitation } from '$lib/types/chat';
   import { useExportSingleMessageMutation } from '$lib/api/hooks';
   import { downloadBlob } from '$lib/utils/download';
   import { toastStore } from '$lib/stores/toast';
@@ -71,6 +71,7 @@
         duration_ms: streamMetadata.duration_ms,
         cost_usd: streamMetadata.cost_usd,
         input_tokens: streamMetadata.input_tokens,
+        sources: streamMetadata.sources,
       };
     }
     return {
@@ -78,6 +79,7 @@
       duration_ms: message.duration_ms,
       cost_usd: undefined,
       input_tokens: undefined,
+      sources: undefined as SourceCitation[] | undefined,
     };
   });
 
@@ -239,6 +241,23 @@
         </div>
       {/if}
     </div>
+
+    <!-- Source Citations -->
+    {#if displayMetadata()?.sources?.length}
+      <div class="sources-panel">
+        <h4>Sources</h4>
+        <ul>
+          {#each displayMetadata().sources as source}
+            <li>
+              <code>{source.title}</code>
+              {#if source.content_id}
+                <span class="content-id">({source.content_id.slice(0, 8)}…)</span>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
 
     <!-- Metadata Footer -->
     {#if !isStreaming && (displayMetadata().token_count || displayMetadata().duration_ms || displayMetadata().cost_usd)}
@@ -536,6 +555,49 @@
   }
 
   .meta-label {
+    color: var(--text-muted);
+  }
+
+  /* Source Citations Panel */
+  .sources-panel {
+    margin-top: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-sm);
+    border-left: 3px solid var(--primary-color);
+    font-size: var(--font-size-sm);
+  }
+
+  .sources-panel h4 {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 var(--space-2) 0;
+    color: var(--text-secondary);
+  }
+
+  .sources-panel ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .sources-panel li {
+    padding: 2px 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .sources-panel code {
+    font-size: var(--font-size-xs);
+    background: var(--bg-hover);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+  }
+
+  .sources-panel .content-id {
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
   }
 </style>

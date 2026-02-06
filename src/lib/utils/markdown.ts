@@ -256,6 +256,24 @@ function closeIncompleteCodeBlocks(content: string): string {
 }
 
 /**
+ * Wrap a "Sources" or "References" section near the end of the HTML
+ * in a styled container div for visual distinction.
+ *
+ * Must be called AFTER DOMPurify sanitization since it adds a wrapper div
+ * with a class attribute (both already in the sanitize allowlist).
+ */
+function wrapSourcesSection(html: string): string {
+  const sourcesPattern = /<h2[^>]*>(Sources|References)<\/h2>/i;
+  const match = html.match(sourcesPattern);
+  if (match && match.index !== undefined) {
+    const beforeSources = html.slice(0, match.index);
+    const sourcesSection = html.slice(match.index);
+    return `${beforeSources}<div class="sources-section">${sourcesSection}</div>`;
+  }
+  return html;
+}
+
+/**
  * Parse markdown content to sanitized HTML.
  *
  * @param content - Raw markdown content
@@ -276,7 +294,10 @@ export function parseMarkdown(content: string, isStreaming = false): string {
   const rawHtml = marked.parse(processed, { async: false }) as string;
 
   // Sanitize HTML to prevent XSS
-  return DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG);
+  const sanitizedHtml = DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG);
+
+  // Wrap Sources/References section in styled container (post-sanitization)
+  return wrapSourcesSection(sanitizedHtml);
 }
 
 /**
