@@ -259,17 +259,12 @@ function closeIncompleteCodeBlocks(content: string): string {
  * Wrap a "Sources" or "References" section near the end of the HTML
  * in a styled container div for visual distinction.
  *
- * Must be called AFTER DOMPurify sanitization since it adds a wrapper div
- * with a class attribute (both already in the sanitize allowlist).
+ * Deprecated: Claude is now instructed to cite inline only and not produce
+ * a separate Sources/References section. This function is kept as a no-op
+ * for backward compatibility (existing persisted messages may still contain
+ * Sources sections; they render as normal markdown without special wrapping).
  */
 function wrapSourcesSection(html: string): string {
-  const sourcesPattern = /<h2[^>]*>(Sources|References)<\/h2>/i;
-  const match = html.match(sourcesPattern);
-  if (match && match.index !== undefined) {
-    const beforeSources = html.slice(0, match.index);
-    const sourcesSection = html.slice(match.index);
-    return `${beforeSources}<div class="sources-section">${sourcesSection}</div>`;
-  }
   return html;
 }
 
