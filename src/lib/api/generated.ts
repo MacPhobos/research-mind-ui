@@ -206,7 +206,7 @@ export interface paths {
          *
          *     Args:
          *         session_id: Target session ID.
-         *         request: Batch add request containing list of URLs (1-50).
+         *         request: Batch add request containing list of URLs (1-500).
          *
          *     Returns:
          *         BatchContentResponse with per-item results and summary counts.
@@ -357,6 +357,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/chat/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export full chat history
+         * @description Generate and download full chat history in specified format (PDF or Markdown)
+         */
+        post: operations["export_chat_history_api_v1_sessions__session_id__chat_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/chat/{message_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export single Q/A pair
+         * @description Generate and download a specific question/answer pair
+         */
+        post: operations["export_single_message_api_v1_sessions__session_id__chat__message_id__export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -429,7 +469,7 @@ export interface components {
         BatchAddContentRequest: {
             /**
              * Urls
-             * @description List of URLs to add (1-50)
+             * @description List of URLs to add (1-500)
              */
             urls: components["schemas"]["BatchUrlItem"][];
             /**
@@ -581,6 +621,34 @@ export interface components {
              * @description Links from other/unclassified areas
              */
             other?: components["schemas"]["ExtractedLinkSchema"][];
+        };
+        /**
+         * ChatExportFormat
+         * @description Supported export formats for chat history.
+         * @enum {string}
+         */
+        ChatExportFormat: "pdf" | "markdown";
+        /**
+         * ChatExportRequest
+         * @description Request body for chat export endpoints.
+         * @example {
+         *       "format": "pdf",
+         *       "include_metadata": true,
+         *       "include_timestamps": true
+         *     }
+         */
+        ChatExportRequest: {
+            format: components["schemas"]["ChatExportFormat"];
+            /**
+             * Include Metadata
+             * @default true
+             */
+            include_metadata: boolean;
+            /**
+             * Include Timestamps
+             * @default true
+             */
+            include_timestamps: boolean;
         };
         /**
          * ChatMessageListResponse
@@ -1635,6 +1703,116 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    export_chat_history_api_v1_sessions__session_id__chat_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "application/pdf": unknown;
+                    "text/markdown": unknown;
+                };
+            };
+            /** @description Session not found or no messages */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Export generation failed */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    export_single_message_api_v1_sessions__session_id__chat__message_id__export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Export file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "application/pdf": unknown;
+                    "text/markdown": unknown;
+                };
+            };
+            /** @description Invalid message type */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Session, message, or preceding message not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Export generation failed */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

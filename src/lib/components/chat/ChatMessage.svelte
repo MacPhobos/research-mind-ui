@@ -130,6 +130,15 @@
 
   // Check if export is available (assistant messages only, not streaming)
   const canExport = $derived(!isUser && !isStreaming && sessionId && message.status === 'completed');
+
+  // Format a source URL for display (show hostname only, with fallback)
+  function displaySourceUrl(url: string): string {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url.length > 40 ? url.slice(0, 40) + '...' : url;
+    }
+  }
 </script>
 
 <div class="chat-message" class:user={isUser} class:assistant={!isUser} class:error={isError}>
@@ -247,11 +256,25 @@
       <div class="sources-panel">
         <h4>Sources</h4>
         <ul>
-          {#each displayMetadata().sources as source}
-            <li>
-              <code>{source.title}</code>
-              {#if source.content_id}
-                <span class="content-id">({source.content_id.slice(0, 8)}…)</span>
+          {#each (displayMetadata().sources ?? []) as source}
+            <li class="source-item">
+              <span class="source-title">
+                {source.content_title || source.title}
+              </span>
+              {#if source.content_type}
+                <span class="source-type">{source.content_type}</span>
+              {/if}
+              {#if source.source_url}
+                <a
+                  href={source.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="source-link"
+                >
+                  {displaySourceUrl(source.source_url)}
+                </a>
+              {:else if source.content_id}
+                <span class="content-id">({source.content_id.slice(0, 8)}...)</span>
               {/if}
             </li>
           {/each}
@@ -584,16 +607,37 @@
 
   .sources-panel li {
     padding: 2px 0;
+  }
+
+  .source-item {
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    flex-wrap: wrap;
   }
 
-  .sources-panel code {
+  .source-title {
+    font-weight: 500;
+  }
+
+  .source-type {
     font-size: var(--font-size-xs);
-    background: var(--bg-hover);
-    padding: 0.1rem 0.3rem;
-    border-radius: 3px;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--border-radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .source-link {
+    font-size: var(--font-size-xs);
+    color: var(--primary-color);
+    text-decoration: none;
+  }
+
+  .source-link:hover {
+    text-decoration: underline;
   }
 
   .sources-panel .content-id {

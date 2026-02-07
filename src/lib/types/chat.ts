@@ -50,6 +50,12 @@ export interface SourceCitation {
   file_path: string;
   content_id?: string;
   title: string;
+  /** Original URL of the content item (from DB) */
+  source_url?: string;
+  /** Human-readable title of the content item (from DB) */
+  content_title?: string;
+  /** Content type: "url", "document", "text", etc. */
+  content_type?: string;
 }
 
 /**
