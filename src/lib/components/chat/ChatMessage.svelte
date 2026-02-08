@@ -3,7 +3,7 @@
   import { User, Bot, AlertCircle, Loader2, ChevronRight, ChevronDown, Download } from 'lucide-svelte';
   import { formatRelativeTime, formatDuration } from '$lib/utils/format';
   import type { ChatMessageResponse, ChatExportFormat } from '$lib/api/client';
-  import type { ChatResultMetadata, SourceCitation } from '$lib/types/chat';
+  import type { ChatResultMetadata, SourceCitation, ProgressEvent } from '$lib/types/chat';
   import { useExportSingleMessageMutation } from '$lib/api/hooks';
   import { downloadBlob } from '$lib/utils/download';
   import { toastStore } from '$lib/stores/toast';
@@ -22,6 +22,8 @@
     stage2Content?: string;
     /** Metadata from streaming result */
     streamMetadata?: ChatResultMetadata | null;
+    /** Latest progress event during streaming */
+    latestProgress?: ProgressEvent | null;
   }
 
   let {
@@ -32,6 +34,7 @@
     stage1Content = '',
     stage2Content = '',
     streamMetadata = null,
+    latestProgress = null,
   }: Props = $props();
 
   // Expandable accordion state
@@ -197,7 +200,17 @@
           </span>
           <span class="toggle-text">Full Process Output</span>
           {#if isStreaming}
-            <span class="streaming-dot" aria-label="Streaming"></span>
+            <span class="streaming-dot" aria-label="Response in progress: {latestProgress?.message || 'Processing'}"></span>
+            {#if latestProgress}
+              <span class="progress-status" aria-live="polite">
+                {latestProgress.message}
+                {#if latestProgress.phase !== 'thinking'}
+                  <span class="progress-elapsed">
+                    ({Math.round(latestProgress.elapsed_ms / 1000)}s)
+                  </span>
+                {/if}
+              </span>
+            {/if}
           {/if}
         </button>
 
@@ -501,6 +514,35 @@
     }
     50% {
       opacity: 0.4;
+    }
+  }
+
+  .progress-status {
+    font-size: var(--font-size-xs, 0.75rem);
+    color: var(--text-secondary);
+    max-width: 350px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-left: var(--space-2, 0.5rem);
+    opacity: 0.85;
+    animation: progressFadeIn 0.3s ease-in;
+  }
+
+  .progress-elapsed {
+    color: var(--text-muted);
+    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @keyframes progressFadeIn {
+    from {
+      opacity: 0;
+      transform: translateX(-4px);
+    }
+    to {
+      opacity: 0.85;
+      transform: translateX(0);
     }
   }
 

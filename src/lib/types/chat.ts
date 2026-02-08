@@ -23,6 +23,8 @@ export enum ChatStreamEventType {
   ASSISTANT = 'assistant',
   /** Final result with full metadata (tokens, duration, cost) - Stage 2 */
   RESULT = 'result',
+  /** Structured progress update during Q&A streaming */
+  PROGRESS = 'progress',
   /** Error occurred */
   ERROR = 'error',
   /** Keep-alive ping */
@@ -100,6 +102,13 @@ export interface ChatStreamChunk {
   message_id?: string;
 }
 
+/** Structured progress update during Q&A streaming. */
+export interface ProgressEvent {
+  phase: 'starting' | 'initializing' | 'thinking' | 'complete';
+  message: string;
+  elapsed_ms: number;
+}
+
 /**
  * Maps event type string to ChatStreamEventType enum.
  */
@@ -112,6 +121,7 @@ export function parseEventType(eventType: string): ChatStreamEventType {
     stream_token: ChatStreamEventType.STREAM_TOKEN,
     assistant: ChatStreamEventType.ASSISTANT,
     result: ChatStreamEventType.RESULT,
+    progress: ChatStreamEventType.PROGRESS,
     error: ChatStreamEventType.ERROR,
     heartbeat: ChatStreamEventType.HEARTBEAT,
     chunk: ChatStreamEventType.CHUNK,

@@ -14,6 +14,7 @@ import {
   formatSystemEvent,
   type ChatResultMetadata,
   type SourceCitation,
+  type ProgressEvent,
 } from '$lib/types/chat';
 
 export type StreamStatus = 'idle' | 'connecting' | 'streaming' | 'completed' | 'error';
@@ -55,6 +56,7 @@ export function createChatStream(onComplete?: () => void) {
   let error = $state<string | null>(null);
   let messageId = $state<string | null>(null);
   let metadata = $state<ChatResultMetadata | null>(null);
+  let latestProgress = $state<ProgressEvent | null>(null);
 
   // Store reference to EventSource for cleanup
   let eventSource: EventSource | null = null;
@@ -69,6 +71,7 @@ export function createChatStream(onComplete?: () => void) {
         stage1Content = '';
         stage2Content = '';
         metadata = null;
+        latestProgress = null;
         messageId = (data.message_id as string) ?? null;
         status = 'streaming';
         break;
@@ -105,6 +108,7 @@ export function createChatStream(onComplete?: () => void) {
         stage2Content = data.content as string ?? data.result as string ?? stage2Content;
         metadata = extractMetadata(data);
         messageId = (data.message_id as string) ?? messageId;
+        latestProgress = null;
         status = 'completed';
         eventSource?.close();
         eventSource = null;
@@ -142,6 +146,16 @@ export function createChatStream(onComplete?: () => void) {
         eventSource = null;
         onComplete?.();
         break;
+
+      case ChatStreamEventType.PROGRESS: {
+        try {
+          const progressData = JSON.parse(data.content as string) as ProgressEvent;
+          latestProgress = progressData;
+        } catch {
+          // Ignore malformed progress events
+        }
+        break;
+      }
 
       case ChatStreamEventType.ERROR:
         error = (data.error as string) || 'Stream error occurred';
@@ -192,6 +206,7 @@ export function createChatStream(onComplete?: () => void) {
     status = 'connecting';
     error = null;
     metadata = null;
+    latestProgress = null;
 
     // Get full URL from the API client
     const fullUrl = apiClient.getFullStreamUrl(streamUrl);
@@ -208,6 +223,7 @@ export function createChatStream(onComplete?: () => void) {
         'stream_token',
         'assistant',
         'result',
+        'progress',
         'error',
         'heartbeat',
         'chunk',     // Legacy
@@ -260,6 +276,7 @@ export function createChatStream(onComplete?: () => void) {
     error = null;
     messageId = null;
     metadata = null;
+    latestProgress = null;
   }
 
   // Return reactive getters and control functions
@@ -273,6 +290,9 @@ export function createChatStream(onComplete?: () => void) {
     },
     get metadata() {
       return metadata;
+    },
+    get latestProgress() {
+      return latestProgress;
     },
 
     // Status getters

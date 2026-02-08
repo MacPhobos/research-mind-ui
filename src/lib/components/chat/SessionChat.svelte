@@ -280,6 +280,7 @@
             stage2Content={message.message_id === stream.messageId ? stream.stage2Content : ''}
             streamMetadata={message.message_id === stream.messageId ? stream.metadata : null}
             streamContent={message.message_id === stream.messageId ? stream.content : ''}
+            latestProgress={message.message_id === stream.messageId ? stream.latestProgress : null}
           />
         {/each}
       </div>
