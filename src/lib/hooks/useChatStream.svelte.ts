@@ -134,11 +134,22 @@ export function createChatStream(onComplete?: () => void) {
             stage2Content = data.content;
           }
         }
-        // Extract token count and duration from legacy format
-        if (data.token_count || data.duration_ms) {
+        // Extract metadata from complete event
+        // The backend sends rich metadata inside data.metadata (including sources)
+        // as well as top-level token_count/duration_ms for legacy compatibility
+        {
+          const eventMetadata = data.metadata as Record<string, unknown> | undefined;
           metadata = {
-            token_count: data.token_count as number | undefined,
-            duration_ms: data.duration_ms as number | undefined,
+            token_count: (eventMetadata?.token_count as number | undefined) ??
+              (data.token_count as number | undefined),
+            duration_ms: (eventMetadata?.duration_ms as number | undefined) ??
+              (data.duration_ms as number | undefined),
+            cost_usd: eventMetadata?.cost_usd as number | undefined,
+            session_id: eventMetadata?.session_id as string | undefined,
+            num_turns: eventMetadata?.num_turns as number | undefined,
+            input_tokens: eventMetadata?.input_tokens as number | undefined,
+            cache_read_tokens: eventMetadata?.cache_read_tokens as number | undefined,
+            sources: eventMetadata?.sources as SourceCitation[] | undefined,
           };
         }
         status = 'completed';
@@ -176,6 +187,7 @@ export function createChatStream(onComplete?: () => void) {
    */
   function extractMetadata(data: Record<string, unknown>): ChatResultMetadata {
     const usage = data.usage as Record<string, unknown> | undefined;
+    const nestedMetadata = data.metadata as Record<string, unknown> | undefined;
     return {
       duration_ms: data.duration_ms as number | undefined,
       duration_api_ms: data.duration_api_ms as number | undefined,
@@ -185,7 +197,8 @@ export function createChatStream(onComplete?: () => void) {
       token_count: usage?.output_tokens as number | undefined,
       input_tokens: usage?.input_tokens as number | undefined,
       cache_read_tokens: usage?.cache_read_input_tokens as number | undefined,
-      sources: data.sources as SourceCitation[] | undefined,
+      sources: (data.sources as SourceCitation[] | undefined) ??
+        (nestedMetadata?.sources as SourceCitation[] | undefined),
     };
   }
 
